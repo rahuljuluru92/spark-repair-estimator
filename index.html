@@ -1,0 +1,4023 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+
+  <!-- =====================================================
+       VIEWPORT & MOBILE META
+  ====================================================== -->
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable"          content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title"            content="Estimator" />
+  <meta name="theme-color"                           content="#f8fafc" />
+
+  <title>Spark Repair Estimator</title>
+
+  <!-- =====================================================
+       PWA MANIFEST & SERVICE WORKER
+  ====================================================== -->
+  <link rel="manifest" href="./manifest.json" />
+
+  <!-- Service worker registration — sw.js added later -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+  </script>
+
+  <!-- =====================================================
+       TYPOGRAPHY — INTER (GOOGLE FONTS)
+  ====================================================== -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- CDN libraries (SheetJS, JSZip, Tesseract) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <style>
+    /* =====================================================
+       CSS CUSTOM PROPERTIES — LIGHT THEME (default)
+       Outdoor use: maximum contrast, bright backgrounds.
+    ====================================================== */
+    :root,
+    [data-theme="light"] {
+      --bg-primary:   #f8fafc;
+      --bg-surface:   #ffffff;
+      --bg-card:      #ffffff;
+      --accent:       #ea580c;   /* orange-600 — passes WCAG AA on white */
+      --accent-2:     #d97706;   /* amber-600 */
+      --accent-fg:    #ffffff;   /* text on accent backgrounds */
+      --text-primary: #0f172a;
+      --text-muted:   #64748b;
+      --border:       #e2e8f0;
+      --shadow:       0 1px 3px rgba(0, 0, 0, 0.08),
+                      0 1px 2px rgba(0, 0, 0, 0.04);
+      --shadow-md:    0 4px 6px rgba(0, 0, 0, 0.07),
+                      0 2px 4px rgba(0, 0, 0, 0.05);
+
+      /* Theme toggle hint */
+      --toggle-icon: "🌙";
+    }
+
+    /* =====================================================
+       CSS CUSTOM PROPERTIES — DARK THEME
+       Premium demo feel; usable indoors.
+    ====================================================== */
+    [data-theme="dark"] {
+      --bg-primary:   #0f1117;
+      --bg-surface:   #1a1d2e;
+      --bg-card:      #1e2235;
+      --accent:       #f97316;   /* orange-500 — bright on dark bg */
+      --accent-2:     #fbbf24;   /* amber-400 */
+      --accent-fg:    #0f172a;   /* dark text on bright accent */
+      --text-primary: #f8fafc;
+      --text-muted:   #94a3b8;
+      --border:       #2d3a4f;
+      --shadow:       0 1px 3px rgba(0, 0, 0, 0.35),
+                      0 1px 2px rgba(0, 0, 0, 0.25);
+      --shadow-md:    0 4px 6px rgba(0, 0, 0, 0.40),
+                      0 2px 4px rgba(0, 0, 0, 0.30);
+
+      --toggle-icon: "☀️";
+    }
+
+    /* =====================================================
+       GLOBAL RESETS & BASE
+    ====================================================== */
+    *,
+    *::before,
+    *::after {
+      box-sizing:                 border-box;
+      -webkit-tap-highlight-color: transparent;
+      margin:                     0;
+      padding:                    0;
+    }
+
+    html {
+      /* Smooth theme transitions */
+      color-scheme: light dark;
+    }
+
+    body {
+      font-family:       'Inter', system-ui, -apple-system, BlinkMacSystemFont,
+                         'Segoe UI', sans-serif;
+      font-size:         16px;
+      line-height:       1.5;
+      background-color:  var(--bg-primary);
+      color:             var(--text-primary);
+      min-height:        100vh;
+      min-height:        100dvh;             /* dynamic viewport on mobile */
+      overscroll-behavior: none;            /* prevent pull-to-refresh rubber band */
+      -webkit-font-smoothing:  antialiased;
+      -moz-osx-font-smoothing: grayscale;
+
+      /* Smooth theme colour transitions */
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    /* =====================================================
+       TYPOGRAPHY
+    ====================================================== */
+    h1, h2, h3, h4 {
+      font-weight: 700;
+      line-height: 1.2;
+      color:       var(--text-primary);
+    }
+
+    p {
+      color: var(--text-primary);
+    }
+
+    /* =====================================================
+       BUTTONS — BASE
+    ====================================================== */
+    button {
+      font-family:  inherit;
+      font-size:    inherit;
+      cursor:       pointer;
+      border:       none;
+      background:   none;
+      color:        inherit;
+      line-height:  1;
+    }
+
+    button:focus-visible {
+      outline:        2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius:  6px;
+    }
+
+    /* =====================================================
+       INPUTS — BASE
+    ====================================================== */
+    input, select, textarea {
+      font-family: inherit;
+      font-size:   inherit;
+      color:       var(--text-primary);
+      background:  var(--bg-surface);
+      border:      1px solid var(--border);
+      border-radius: 8px;
+      outline:     none;
+      transition:  border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow:   0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+
+    /* Hide number input spinners */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] { -moz-appearance: textfield; }
+
+    /* =====================================================
+       CARDS
+    ====================================================== */
+    .card {
+      background:    var(--bg-card);
+      border:        1px solid var(--border);
+      border-radius: 14px;
+      box-shadow:    var(--shadow);
+      transition:    background-color 0.25s ease, border-color 0.25s ease;
+    }
+
+    /* =====================================================
+       LAYOUT — APP CONTAINER
+    ====================================================== */
+    #app {
+      min-height:     100vh;
+      min-height:     100dvh;
+      display:        flex;
+      flex-direction: column;
+    }
+
+    /* =====================================================
+       HEADER
+    ====================================================== */
+    .sticky-top-container {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      transition: background-color 0.25s ease, border-color 0.25s ease;
+    }
+    [data-theme="dark"] .sticky-top-container {
+      background: rgba(26, 29, 46, 0.85);
+    }
+
+    #app-header {
+      /* Respect the iOS notch at the top */
+      padding-top:    calc(12px + env(safe-area-inset-top));
+      padding-bottom: 10px;
+      padding-left:   16px;
+      padding-right:  16px;
+      display:        flex;
+      flex-direction: column;
+      align-items:    stretch;
+      gap:            10px;
+      transition:     background-color 0.25s ease, border-color 0.25s ease;
+    }
+
+    .header-top {
+      display:         flex;
+      justify-content: space-between;
+      align-items:     center;
+      width:           100%;
+    }
+
+    /* Brand wordmark */
+    #app-header .brand {
+      font-size:   1.1rem;
+      font-weight: 700;
+      color:       var(--text-primary);
+      letter-spacing: -0.02em;
+      display:     flex;
+      align-items: center;
+      gap:         8px;
+    }
+
+    #app-header .brand .brand-dot {
+      display:       inline-block;
+      width:         8px;
+      height:        8px;
+      border-radius: 50%;
+      background:    var(--accent);
+      flex-shrink:   0;
+    }
+
+    /* =====================================================
+       THEME TOGGLE & ACTION BUTTONS
+    ====================================================== */
+    #theme-toggle,
+    #export-btn,
+    #settings-btn {
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      width:           38px;
+      height:          38px;
+      border-radius:   50%;
+      background:      var(--bg-primary);
+      border:          1px solid var(--border);
+      font-size:       1.1rem;
+      flex-shrink:     0;
+      transition:      background-color 0.2s ease,
+                       border-color 0.2s ease,
+                       transform 0.15s ease;
+    }
+
+    #theme-toggle:active,
+    #export-btn:active {
+      transform: scale(0.90);
+    }
+
+    /* =====================================================
+       MAIN CONTENT AREA
+    ====================================================== */
+    #main-content {
+      flex:           1;
+      display:        flex;
+      flex-direction: column;
+      align-items:    stretch;
+      justify-content: flex-start;
+      padding:        16px;
+      padding-bottom: calc(90px + env(safe-area-inset-bottom)); /* 90px space for sticky bottom nav */
+    }
+
+    /* Loading placeholder — replaced in later prompts */
+    .placeholder-msg {
+      font-size:   0.95rem;
+      color:       var(--text-muted);
+      font-weight: 500;
+      text-align:  center;
+      padding:     64px 24px;
+    }
+
+    /* =====================================================
+       SCROLL HELPERS (reusable in later prompts)
+    ====================================================== */
+    .scroll-x {
+      overflow-x:               auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width:          none;
+    }
+    .scroll-x::-webkit-scrollbar { display: none; }
+
+    .scroll-y {
+      overflow-y:               auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* =====================================================
+       SAFE-AREA UTILITIES (reusable in later prompts)
+    ====================================================== */
+    .pt-safe   { padding-top:    env(safe-area-inset-top); }
+    .pb-safe   { padding-bottom: env(safe-area-inset-bottom); }
+    .pl-safe   { padding-left:   env(safe-area-inset-left); }
+    .pr-safe   { padding-right:  env(safe-area-inset-right); }
+
+    /* =====================================================
+       HEADER EXTRA DETAILS
+    ====================================================== */
+    .total-row {
+      display:         flex;
+      justify-content: space-between;
+      align-items:     baseline;
+      margin-top:      4px;
+    }
+    .total-val {
+      font-size:            2.2rem;
+      font-weight:          800;
+      letter-spacing:       -0.03em;
+      line-height:          1;
+      font-variant-numeric: tabular-nums;
+    }
+    .project-info {
+      font-size:      0.85rem;
+      color:          var(--text-muted);
+      font-weight:    500;
+      max-width:      50%;
+      text-align:     right;
+      white-space:    nowrap;
+      overflow:       hidden;
+      text-overflow:  ellipsis;
+    }
+    .progress-row {
+      display:     flex;
+      align-items: center;
+      gap:         12px;
+      margin-top:  4px;
+    }
+    .progress-bar-container {
+      flex:          1;
+      height:        6px;
+      background:    var(--bg-primary);
+      border:        1px solid var(--border);
+      border-radius: 3px;
+      overflow:      hidden;
+    }
+    .progress-bar-fill {
+      height:           100%;
+      background:       var(--accent);
+      border-radius:    3px;
+      width:            0%;
+      transition:       width 0.3s ease;
+    }
+    .progress-text {
+      font-size:            0.75rem;
+      font-weight:          600;
+      color:                var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* =====================================================
+       SECTION NAVIGATION (TABS)
+    ====================================================== */
+    #section-tabs {
+      display:     flex;
+      flex-wrap:   nowrap;
+      background:  transparent;
+      width:       100%;
+      overflow-x:  auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding:     0 16px;
+    }
+    #section-tabs::-webkit-scrollbar {
+      display: none;
+    }
+    .tab-item {
+      padding:       12px 16px;
+      font-size:     0.85rem;
+      font-weight:   600;
+      color:         var(--text-muted);
+      border-bottom: 3px solid transparent;
+      white-space:   nowrap;
+      display:       flex;
+      align-items:   center;
+      gap:           6px;
+      transition:    all 0.2s ease;
+      flex-shrink:   0;
+      cursor:        pointer;
+    }
+    .tab-item.active {
+      color:               var(--accent);
+      border-bottom-color: var(--accent);
+      background:          color-mix(in srgb, var(--accent) 5%, transparent);
+    }
+    .tab-badge {
+      background:           var(--bg-primary);
+      color:                var(--text-muted);
+      font-size:            0.7rem;
+      padding:              2px 6px;
+      border-radius:        10px;
+      border:               1px solid var(--border);
+      font-variant-numeric: tabular-nums;
+    }
+    .tab-item.active .tab-badge {
+      background:   color-mix(in srgb, var(--accent) 15%, transparent);
+      color:        var(--accent);
+      border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+    }
+
+    /* =====================================================
+       ROOM / SUB-TABS NAVIGATION
+    ====================================================== */
+    .room-tabs-container {
+      display:     flex;
+      flex-wrap:   nowrap;
+      align-items: center;
+      gap:         8px;
+      padding:     8px 16px 16px;
+      margin:      0 -16px;
+      width:       calc(100% + 32px);
+      overflow-x:  auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .room-tabs-container::-webkit-scrollbar {
+      display: none;
+    }
+    .room-tab {
+      display:         flex;
+      align-items:     center;
+      gap:             8px;
+      padding:         8px 14px;
+      background:      var(--bg-surface);
+      border:          1px solid var(--border);
+      border-radius:   20px;
+      font-size:       0.85rem;
+      font-weight:     600;
+      color:           var(--text-muted);
+      transition:      all 0.15s ease;
+      box-shadow:      var(--shadow);
+      flex-shrink:     0;
+      cursor:          pointer;
+    }
+    .room-tab.active {
+      background:   var(--accent);
+      color:        var(--accent-fg);
+      border-color: var(--accent);
+    }
+    .room-tab-btn-icon {
+      background: none;
+      border:     none;
+      padding:    2px;
+      font-size:  0.8rem;
+      opacity:    0.7;
+      transition: opacity 0.15s;
+      cursor:     pointer;
+    }
+    .room-tab-btn-icon:hover {
+      opacity: 1;
+    }
+    .room-btn-add {
+      padding:       8px 14px;
+      border-radius: 20px;
+      font-size:     0.85rem;
+      font-weight:   700;
+      color:         var(--accent);
+      background:    color-mix(in srgb, var(--accent) 10%, transparent);
+      border:        1px dashed var(--accent);
+      transition:    all 0.15s ease;
+      flex-shrink:   0;
+      cursor:        pointer;
+    }
+
+    /* =====================================================
+       GROUP CARDS & COLLAPSE UI
+    ====================================================== */
+    .group-card {
+      margin-bottom: 12px;
+      background:    var(--bg-card);
+      border:        1px solid var(--border);
+      border-radius: 12px;
+      overflow:      hidden;
+      box-shadow:    var(--shadow);
+    }
+    .group-header {
+      width:           100%;
+      padding:         14px 16px;
+      display:         flex;
+      justify-content: space-between;
+      align-items:     center;
+      background:      var(--bg-surface);
+      border-bottom:   1px solid transparent;
+      transition:      background-color 0.2s;
+    }
+    .group-card.expanded .group-header {
+      border-bottom-color: var(--border);
+    }
+    .group-title-container {
+      display:     flex;
+      align-items: center;
+      gap:         10px;
+    }
+    .group-chevron {
+      transition: transform 0.2s ease;
+      color:      var(--text-muted);
+    }
+    .group-card.expanded .group-chevron {
+      transform: rotate(180deg);
+    }
+    .group-title {
+      font-weight: 700;
+      font-size:   0.95rem;
+    }
+    .group-total-label {
+      font-weight:          700;
+      font-size:            0.95rem;
+      color:                var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+    .group-total-label.zero {
+      color:                var(--text-muted);
+      opacity:              0.55;
+    }
+    .group-body {
+      display: none;
+      padding: 12px;
+      background: var(--bg-primary);
+    }
+    .group-card.expanded .group-body {
+      display:        flex;
+      flex-direction: column;
+      gap:            10px;
+    }
+
+    /* =====================================================
+       LINE ITEM CARDS
+    ====================================================== */
+    .item-card {
+      background:    var(--bg-surface);
+      border:        1px solid var(--border);
+      border-radius: 10px;
+      padding:       12px 14px;
+      display:       flex;
+      gap:           12px;
+      align-items:   flex-start;
+      transition:    border-color 0.2s, box-shadow 0.2s;
+    }
+    .item-card.checked {
+      border-color: var(--accent);
+      box-shadow:   0 0 0 1px var(--accent);
+    }
+    .item-checkbox {
+      width:         20px;
+      height:        20px;
+      border-radius: 6px;
+      border:        2px solid var(--border);
+      display:       flex;
+      align-items:   center;
+      justify-content: center;
+      flex-shrink:   0;
+      margin-top:    2px;
+      transition:    all 0.15s;
+    }
+    .item-card.checked .item-checkbox {
+      background:   var(--accent);
+      border-color: var(--accent);
+      color:        var(--accent-fg);
+    }
+    .item-checkbox svg {
+      width:  12px;
+      height: 12px;
+      stroke: currentColor;
+    }
+    .item-details {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .item-name-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .item-name {
+      font-weight: 600;
+      font-size:   0.9rem;
+      line-height: 1.3;
+    }
+    .item-line-total {
+      font-weight:          700;
+      font-size:            0.95rem;
+      color:                var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+    .item-meta {
+      font-size: 0.75rem;
+      color:     var(--text-muted);
+    }
+    .item-inputs-row {
+      display:     flex;
+      align-items: center;
+      gap:         12px;
+      margin-top:  8px;
+      padding-top: 8px;
+      border-top:  1px solid var(--border);
+    }
+    .item-input-container {
+      display:     flex;
+      align-items: center;
+      gap:         6px;
+    }
+    .item-input-label {
+      font-size:   0.75rem;
+      font-weight: 600;
+      color:       var(--text-muted);
+    }
+    .item-qty-input {
+      width:                80px;
+      padding:              6px 10px;
+      font-size:            0.85rem;
+      font-weight:          600;
+      text-align:           right;
+      font-variant-numeric: tabular-nums;
+    }
+    .item-unit-label {
+      font-size: 0.75rem;
+      color:     var(--text-muted);
+    }
+
+    /* =====================================================
+       BOTTOM NAVIGATION
+    ====================================================== */
+    #bottom-nav {
+      position:      fixed;
+      bottom:        0;
+      left:          0;
+      right:         0;
+      background:    var(--bg-surface);
+      border-top:    1px solid var(--border);
+      padding:       12px 16px calc(12px + env(safe-area-inset-bottom));
+      display:       flex;
+      justify-content: space-between;
+      gap:           12px;
+      z-index:       80;
+    }
+    .nav-btn {
+      flex:          1;
+      padding:       14px 20px;
+      font-size:     0.9rem;
+      font-weight:   700;
+      border-radius: 12px;
+      text-align:    center;
+      box-shadow:    var(--shadow);
+      transition:    transform 0.1s, opacity 0.15s;
+    }
+    .nav-btn:active {
+      transform: scale(0.98);
+    }
+    .nav-btn-prev {
+      background: var(--bg-primary);
+      border:     1px solid var(--border);
+      color:      var(--text-primary);
+    }
+    .nav-btn-next {
+      background: var(--accent);
+      color:      var(--accent-fg);
+    }
+
+    /* =====================================================
+       PHOTO CAPTURE STYLES
+    ====================================================== */
+    .item-photos-section {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--border);
+    }
+    .photo-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .photo-thumbnail-container {
+      position: relative;
+      width: 72px;
+      height: 72px;
+      border-radius: 8px;
+      overflow: visible; /* to show delete button outside */
+      border: 1px solid var(--border);
+      background: var(--bg-primary);
+    }
+    .photo-thumbnail {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+    .photo-delete-btn {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--danger);
+      color: #ffffff;
+      font-size: 0.8rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-md);
+      z-index: 10;
+    }
+    .btn-add-photo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+      transition: all 0.15s;
+    }
+    .btn-add-photo:active {
+      transform: scale(0.95);
+    }
+
+    /* =====================================================
+       SETTINGS MODAL, TOASTS, OVERRIDES & CUSTOM ITEMS
+    ====================================================== */
+    /* Modal Overlay */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 200;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    /* Bottom Sheet Content */
+    .modal-content {
+      background: var(--bg-surface);
+      border-top-left-radius: 20px;
+      border-top-right-radius: 20px;
+      width: 100%;
+      max-width: 500px;
+      padding: 20px;
+      padding-bottom: calc(24px + env(safe-area-inset-bottom));
+      box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.15);
+      transform: translateY(100%);
+      transition: transform 0.25s ease;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-overlay.open .modal-content {
+      transform: translateY(0);
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+    .modal-header h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+    .modal-close {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      line-height: 1;
+    }
+    
+    .modal-body {
+      overflow-y: auto;
+      flex: 1;
+    }
+    
+    .settings-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .settings-section h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .settings-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+    
+    /* Settings Buttons */
+    .btn-primary, .btn-accent, .btn-danger {
+      padding: 11px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background-color 0.15s, transform 0.1s;
+    }
+    .btn-primary:active, .btn-accent:active, .btn-danger:active {
+      transform: scale(0.98);
+    }
+    .btn-primary {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+    }
+    .btn-accent {
+      background: var(--accent);
+      color: var(--accent-fg);
+      border: none;
+    }
+    .btn-accent:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-danger {
+      background: #ef4444;
+      color: #ffffff;
+      border: none;
+    }
+    
+    .csv-upload-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: var(--bg-primary);
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-top: 6px;
+    }
+    .file-name-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-align: center;
+      word-break: break-all;
+    }
+    
+    /* Cost Override Button in Item Cards */
+    .cost-override-btn {
+      background: none;
+      border:     none;
+      padding:    0;
+      font-size:  0.75rem;
+      color:      var(--text-muted);
+      cursor:     pointer;
+      text-decoration: underline dotted;
+      display:    inline-flex;
+      align-items: center;
+      gap:        4px;
+      line-height: 1.2;
+    }
+    .cost-override-btn:hover {
+      color: var(--accent);
+    }
+    .cost-override-btn.price-overridden {
+      color: var(--accent);
+      font-weight: 600;
+    }
+    
+    /* Custom item buttons */
+    .btn-add-custom {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: var(--bg-surface);
+      border: 1px dashed var(--accent);
+      border-radius: 10px;
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      width: 100%;
+    }
+    .btn-add-custom:active {
+      transform: scale(0.98);
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+    }
+    
+    .btn-delete-custom {
+      background: none;
+      border:     none;
+      cursor:     pointer;
+      font-size:  0.9rem;
+      opacity:    0.6;
+      transition: opacity 0.15s;
+      display:    inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding:    2px;
+    }
+    .btn-delete-custom:hover {
+      opacity: 1;
+    }
+    
+    /* Toast System */
+    .toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.95);
+      color: #ffffff;
+      padding: 10px 20px;
+      border-radius: 20px;
+      z-index: 9999;
+      font-size: 0.85rem;
+      font-weight: 600;
+      box-shadow: var(--shadow-md);
+      pointer-events: none;
+      animation: fadeInOut 2.5s ease forwards;
+    }
+    [data-theme="dark"] .toast {
+      background: rgba(248, 250, 252, 0.95);
+      color: #0f172a;
+    }
+    @keyframes fadeInOut {
+      0% { opacity: 0; transform: translate(-50%, 10px); }
+      15% { opacity: 1; transform: translate(-50%, 0); }
+      85% { opacity: 1; transform: translate(-50%, 0); }
+      100% { opacity: 0; transform: translate(-50%, -10px); }
+    }
+
+    /* =====================================================
+       DEAL ANALYZER
+       Floating Action Button (FAB) & Analyzer sheet
+    ====================================================== */
+    .deal-fab {
+      position: fixed;
+      bottom: calc(90px + env(safe-area-inset-bottom));
+      right: 20px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #ffffff;
+      font-size: 1.6rem;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+      z-index: 150;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
+    }
+    .deal-fab:active {
+      transform: scale(0.92);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    [data-theme="dark"] .deal-fab {
+      background: #f97316; /* Bright orange for dark theme */
+      color: #0f1117;
+    }
+    
+    /* Drag Handle decorative bar */
+    .drag-handle {
+      width: 40px;
+      height: 5px;
+      background: var(--border);
+      border-radius: 2.5px;
+      margin: -4px auto 14px;
+      cursor: grab;
+      transition: background-color 0.2s;
+    }
+    .drag-handle:active {
+      cursor: grabbing;
+      background: var(--text-muted);
+    }
+    
+    /* Live rating badges */
+    .deal-rating-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      font-weight: 700;
+      padding: 10px 16px;
+      border-radius: 10px;
+      width: 100%;
+      text-align: center;
+      transition: background-color 0.2s, color 0.2s;
+      border: 1px solid transparent;
+      margin-top: 10px;
+    }
+    .deal-rating-badge.great {
+      background: rgba(34, 197, 94, 0.15);
+      color: #22c55e;
+      border-color: rgba(34, 197, 94, 0.25);
+    }
+    .deal-rating-badge.marginal {
+      background: rgba(234, 179, 8, 0.15);
+      color: #d97706;
+      border-color: rgba(234, 179, 8, 0.25);
+    }
+    .deal-rating-badge.avoid {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+      border-color: rgba(239, 68, 68, 0.25);
+    }
+    
+    /* Layout grid for deal inputs/outputs */
+    .analyzer-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+    @media (min-width: 480px) {
+      .analyzer-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+    }
+    .analyzer-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .analyzer-group label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .analyzer-input {
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-weight: 600;
+      width: 100%;
+    }
+    .analyzer-input:focus {
+      border-color: var(--accent);
+      background: var(--bg-surface);
+    }
+    .analyzer-input[readonly] {
+      background: color-mix(in srgb, var(--border) 35%, transparent);
+      color: var(--text-muted);
+      cursor: not-allowed;
+      border-style: dashed;
+    }
+    .analyzer-output-card {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .analyzer-output-val {
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: var(--text-primary);
+    }
+    .analyzer-output-val.profit-positive {
+      color: #22c55e;
+    }
+    .analyzer-output-val.profit-negative {
+      color: #ef4444;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- =====================================================
+       APP ROOT
+  ====================================================== -->
+  <div id="app">
+
+    <!-- Sticky Top Container (Header + Section Tabs) -->
+    <div class="sticky-top-container">
+      <!-- =================================================
+           HEADER
+      ================================================== -->
+      <header id="app-header" role="banner" style="padding-bottom: 8px;">
+        <div class="header-top" style="align-items: center; margin-bottom: 8px;">
+          <!-- Left: Brand -->
+          <div class="brand" aria-label="Spark Repair Estimator" style="font-size: 0.85rem; font-weight: 500; display: flex; align-items: center; gap: 6px;">
+            <span class="brand-dot" aria-hidden="true" style="width: 6px; height: 6px;"></span>
+            Spark Estimator
+            <span style="color: var(--border); margin: 0 4px; font-weight: 300;">|</span>
+            <span class="project-name" id="header-project-name" style="font-size: 0.95rem; color: var(--text-heading); font-weight: 600;">Loading...</span>
+          </div>
+
+          <!-- Right Actions Row -->
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <!-- Settings Button -->
+            <button
+              id="settings-btn"
+              data-action="open-settings"
+              aria-label="Open Settings"
+              title="Settings"
+            >
+              ⚙️
+            </button>
+
+            <!-- Export Button -->
+            <button
+              id="export-btn"
+              data-action="export-project"
+              aria-label="Export estimates to Excel/ZIP"
+              title="Export estimates"
+            >
+              📥
+            </button>
+
+            <!-- Right: Theme Toggle -->
+            <button
+              id="theme-toggle"
+              aria-label="Toggle light / dark mode"
+              title="Toggle theme"
+            >
+              <!-- Icon injected by JS -->
+            </button>
+          </div>
+        </div>
+
+        <!-- Header details (Running total, progress, project name) -->
+        <div id="header-details">
+          <div class="total-row" style="margin-bottom: 6px;">
+            <div class="total-val" id="header-total" style="font-size: 1.6rem; line-height: 1;">$0</div>
+          </div>
+          <div class="progress-row">
+            <div class="progress-bar-container" style="height: 4px;">
+              <div class="progress-bar-fill" id="header-progress-fill" style="width: 0%"></div>
+            </div>
+            <span class="progress-text" id="header-progress-text">0/19 groups</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- =================================================
+           SECTION TABS
+      ================================================== -->
+      <nav id="section-tabs" class="scroll-x"></nav>
+    </div>
+
+    <!-- =================================================
+         MAIN CONTENT
+    ================================================== -->
+    <main id="main-content" role="main">
+      <p class="placeholder-msg">Loading sections…</p>
+    </main>
+
+    <!-- =================================================
+         BOTTOM NAVIGATION
+    ================================================== -->
+    <nav id="bottom-nav"></nav>
+
+  </div><!-- /#app -->
+
+  <!-- =====================================================
+       THEME TOGGLE — JAVASCRIPT
+       Only permitted JS in Prompt 1.
+       No data models, state management, or rendering.
+  ====================================================== -->
+  <script>
+    /* === THEME TOGGLE === */
+    (function () {
+      const STORAGE_KEY = 'theme-pref';
+      const htmlEl      = document.documentElement;
+      const toggleBtn   = document.getElementById('theme-toggle');
+
+      /** Apply theme to <html data-theme> and update button icon */
+      function applyTheme(theme) {
+        htmlEl.setAttribute('data-theme', theme);
+        toggleBtn.textContent = (theme === 'dark') ? '☀️' : '🌙';
+        toggleBtn.setAttribute(
+          'aria-label',
+          theme === 'dark'
+            ? 'Switch to light mode'
+            : 'Switch to dark mode'
+        );
+        // Keep <meta name="theme-color"> in sync with the active bg-surface
+        const metaTheme = document.querySelector('meta[name="theme-color"]');
+        if (metaTheme) {
+          metaTheme.setAttribute(
+            'content',
+            theme === 'dark' ? '#1a1d2e' : '#f8fafc'
+          );
+        }
+      }
+
+      /** Load saved preference; default to "light" for outdoor use */
+      function loadTheme() {
+        return localStorage.getItem(STORAGE_KEY) || 'light';
+      }
+
+      /** Toggle between light and dark */
+      function toggleTheme() {
+        const current = htmlEl.getAttribute('data-theme') || 'light';
+        const next    = current === 'light' ? 'dark' : 'light';
+        localStorage.setItem(STORAGE_KEY, next);
+        applyTheme(next);
+      }
+
+      // Initialise on page load
+      applyTheme(loadTheme());
+
+      // Wire up button
+      toggleBtn.addEventListener('click', toggleTheme);
+    })();
+  </script>
+
+  <!-- =====================================================
+       DATA LAYER — CONSTANTS
+  ====================================================== -->
+  <script>
+    /* === SECTIONS === */
+    const SECTIONS = [
+      { id: 'interior', label: 'Interior / General' },
+      { id: 'kitchen', label: 'Kitchen' },
+      { id: 'bathroom', label: 'Bathrooms' },
+      { id: 'systems', label: 'Systems & Structure' },
+      { id: 'exterior', label: 'Exterior' }
+    ];
+
+    /* === GROUPS === */
+    const GROUPS = {
+      'ig:flooring': { section: 'interior', label: 'Flooring', ids: ['ig-nan-1','ig-01','ig-02','ig-03','ig-04','ig-05','ig-06'] },
+      'ig:paint': { section: 'interior', label: 'Paint & Wall Repair', ids: ['ig-nan-2','ig-07','ig-08','ig-09'] },
+      'ig:doors': { section: 'interior', label: 'Doors', ids: ['ig-nan-3','ig-10','ig-11','ig-12','ig-13','ig-14','ig-15','ig-16','ig-17','ig-18'] },
+      'ig:pest': { section: 'interior', label: 'Pest Control', ids: ['ig-nan-4','ig-23','ig-24'] },
+      
+      'kt:cabinets': { section: 'kitchen', label: 'Cabinets', ids: ['kt-nan-1','kt-01','kt-02','kt-03','kt-04','kt-05'] },
+      'kt:counters': { section: 'kitchen', label: 'Countertops & Tile', ids: ['kt-nan-2','kt-06','kt-07','kt-08','kt-09','kt-10'] },
+      'kt:appliances': { section: 'kitchen', label: 'Appliances', ids: ['kt-nan-3','kt-11','kt-12','kt-13','kt-14','kt-15','kt-16','kt-17'] },
+      
+      'ba:vanity': { section: 'bathroom', label: 'Vanity & Countertop', ids: ['ba-nan-1','ba-01','ba-02','ba-03','ba-14'] },
+      'ba:tub': { section: 'bathroom', label: 'Tub & Shower', ids: ['ba-nan-2','ba-07','ba-08','ba-09','ba-10','ba-11','ba-12','ba-13'] },
+      'ba:tile': { section: 'bathroom', label: 'Tile', ids: ['ba-nan-3','ba-05','ba-06'] },
+      
+      'as:hvac': { section: 'systems', label: 'HVAC', ids: ['as-nan-1','as-01','as-02','as-03','as-04','as-05','as-06','as-07'] },
+      'as:electrical': { section: 'systems', label: 'Electrical', ids: ['as-nan-2','as-10','as-11','as-18','as-19','as-20','as-24'] },
+      'as:structural': { section: 'systems', label: 'Structural', ids: ['as-nan-3','as-12','as-13','as-14','as-15'] },
+      'as:insulation': { section: 'systems', label: 'Insulation & Drywall', ids: ['as-nan-4','as-21','as-22','as-23'] },
+      
+      'ex:fence': { section: 'exterior', label: 'Fence', ids: ['ex-nan-1','ex-01','ex-02','ex-03'] },
+      'ex:siding': { section: 'exterior', label: 'Siding', ids: ['ex-nan-2','ex-05','ex-09'] },
+      'ex:windows': { section: 'exterior', label: 'Windows', ids: ['ex-nan-3','ex-13','ex-14','ex-15','ex-16','ex-17'] },
+      'ex:garage': { section: 'exterior', label: 'Garage', ids: ['ex-nan-4','ex-21','ex-22','ex-23'] },
+      'ex:trees': { section: 'exterior', label: 'Trees', ids: ['ex-nan-5','ex-10','ex-11','ex-12'] }
+    };
+
+    /* === ITEMS === */
+    const ITEMS = {
+      // placeholders
+      'ig-nan-1': { id: 'ig-nan-1', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'ig-nan-2': { id: 'ig-nan-2', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'ig-nan-3': { id: 'ig-nan-3', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'ig-nan-4': { id: 'ig-nan-4', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'kt-nan-1': { id: 'kt-nan-1', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'kt-nan-2': { id: 'kt-nan-2', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'kt-nan-3': { id: 'kt-nan-3', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'ba-nan-1': { id: 'ba-nan-1', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'ba-nan-2': { id: 'ba-nan-2', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'ba-nan-3': { id: 'ba-nan-3', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'as-nan-1': { id: 'as-nan-1', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'as-nan-2': { id: 'as-nan-2', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'as-nan-3': { id: 'as-nan-3', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'as-nan-4': { id: 'as-nan-4', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'ex-nan-1': { id: 'ex-nan-1', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'ex-nan-2': { id: 'ex-nan-2', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'ex-nan-3': { id: 'ex-nan-3', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'ex-nan-4': { id: 'ex-nan-4', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+      'ex-nan-5': { id: 'ex-nan-5', name: 'No Action Needed', cost: 0, unit: 'flat', noAction: true },
+
+      // Interior General
+      'ig-01': { id: 'ig-01', name: 'Refinish Hardwood Floor', cost: 2.35, unit: 'sqft', noAction: false },
+      'ig-02': { id: 'ig-02', name: 'New Hardwoods 1.5"', cost: 10.00, unit: 'sqft', noAction: false },
+      'ig-03': { id: 'ig-03', name: 'New Hardwoods 2"', cost: 4.75, unit: 'sqft', noAction: false },
+      'ig-04': { id: 'ig-04', name: 'Hardwood Splicing', cost: 8.40, unit: 'sqft', noAction: false },
+      'ig-05': { id: 'ig-05', name: 'Vinyl Plank', cost: 2.50, unit: 'sqft', noAction: false },
+      'ig-06': { id: 'ig-06', name: 'Carpet', cost: 1.90, unit: 'sqft', noAction: false },
+      'ig-07': { id: 'ig-07', name: 'Interior Paint — 2 Tone', cost: 2.95, unit: 'sqft', noAction: false },
+      'ig-08': { id: 'ig-08', name: 'Drywall Repair', cost: 900.00, unit: '1,000 sqft', noAction: false },
+      'ig-09': { id: 'ig-09', name: 'Wallpaper Removal', cost: 250.00, unit: 'room', noAction: false },
+      'ig-10': { id: 'ig-10', name: 'Interior Door — Hollow Slab', cost: 125.00, unit: 'ea.', noAction: false },
+      'ig-11': { id: 'ig-11', name: 'Interior Door Hardware (Knob + Hinges + Labor)', cost: 25.00, unit: 'ea.', noAction: false },
+      'ig-12': { id: 'ig-12', name: 'Bifold Door with Framing', cost: 400.00, unit: 'ea.', noAction: false },
+      'ig-13': { id: 'ig-13', name: 'Interior Door — Pre-hung', cost: 200.00, unit: 'ea.', noAction: false },
+      'ig-14': { id: 'ig-14', name: 'Front Entry Door', cost: 475.00, unit: 'ea.', noAction: false },
+      'ig-15': { id: 'ig-15', name: 'Front Entry Door Hardware', cost: 80.00, unit: 'ea.', noAction: false },
+      'ig-16': { id: 'ig-16', name: 'Exterior Door Hardware', cost: 75.00, unit: 'handle', noAction: false },
+      'ig-17': { id: 'ig-17', name: 'Exterior Insulated Side Door (Installed)', cost: 500.00, unit: 'ea.', noAction: false },
+      'ig-18': { id: 'ig-18', name: 'Sliding Glass Door', cost: 1025.00, unit: 'ea.', noAction: false },
+      'ig-19': { id: 'ig-19', name: 'Trim Out (Casing, Crown, Baseboard)', cost: 3.75, unit: 'LF', noAction: false },
+      'ig-20': { id: 'ig-20', name: 'MISC / Punch List', cost: 2650.00, unit: 'flat', noAction: false },
+      'ig-21': { id: 'ig-21', name: 'Finish Out Labor', cost: 1350.00, unit: 'flat', noAction: false },
+      'ig-22': { id: 'ig-22', name: 'Light Fixtures', cost: 70.00, unit: '100 sqft', noAction: false },
+      'ig-23': { id: 'ig-23', name: 'Bedbug Spray / Heat Treat', cost: 475.00, unit: 'ea.', noAction: false },
+      'ig-24': { id: 'ig-24', name: 'Termite Treatment', cost: 650.00, unit: 'ea.', noAction: false },
+      'ig-25': { id: 'ig-25', name: 'Demo', cost: 1375.00, unit: 'variable', noAction: false },
+      'ig-26': { id: 'ig-26', name: 'Haul Off', cost: 725.00, unit: 'load', noAction: false },
+      'ig-27': { id: 'ig-27', name: 'Final Cleaning', cost: 325.00, unit: 'flat', noAction: false },
+      'ig-28': { id: 'ig-28', name: 'Staging', cost: 0.90, unit: 'sqft', noAction: false },
+
+      // Kitchen
+      'kt-01': { id: 'kt-01', name: 'Hinges and Pulls', cost: 275.00, unit: 'kitchen', noAction: false },
+      'kt-02': { id: 'kt-02', name: 'Cabinets Uppers', cost: 125.00, unit: 'LF', noAction: false },
+      'kt-03': { id: 'kt-03', name: 'Cabinets Lowers', cost: 150.00, unit: 'LF', noAction: false },
+      'kt-04': { id: 'kt-04', name: 'Cabinet Door Faces Only', cost: 80.00, unit: 'door', noAction: false },
+      'kt-05': { id: 'kt-05', name: 'Cabinets (Labor & Paint)', cost: 1100.00, unit: 'kitchen', noAction: false },
+      'kt-06': { id: 'kt-06', name: 'Granite + 4" Splash Guard', cost: 40.00, unit: 'LF', noAction: false },
+      'kt-07': { id: 'kt-07', name: 'Backsplash', cost: 725.00, unit: 'house', noAction: false },
+      'kt-08': { id: 'kt-08', name: 'Misc Woodwork', cost: 500.00, unit: 'variable', noAction: false },
+      'kt-09': { id: 'kt-09', name: 'Tile — Large Areas', cost: 6.45, unit: 'sqft', noAction: false },
+      'kt-10': { id: 'kt-10', name: 'Tile — Small Areas', cost: 10.00, unit: 'sqft', noAction: false },
+      'kt-11': { id: 'kt-11', name: 'Undermount Kitchen Sink', cost: 325.00, unit: 'ea.', noAction: false },
+      'kt-12': { id: 'kt-12', name: 'Microwave / Hood', cost: 500.00, unit: 'ea.', noAction: false },
+      'kt-13': { id: 'kt-13', name: 'Range', cost: 725.00, unit: 'ea.', noAction: false },
+      'kt-14': { id: 'kt-14', name: 'Wall Oven', cost: 1075.00, unit: 'ea.', noAction: false },
+      'kt-15': { id: 'kt-15', name: 'Cooktop', cost: 550.00, unit: 'ea.', noAction: false },
+      'kt-16': { id: 'kt-16', name: 'Dishwasher', cost: 575.00, unit: 'ea.', noAction: false },
+      'kt-17': { id: 'kt-17', name: 'Fridge', cost: 1175.00, unit: 'ea.', noAction: false },
+
+      // Bathrooms
+      'ba-01': { id: 'ba-01', name: 'Granite ($/LF)', cost: 35.00, unit: 'LF', noAction: false },
+      'ba-02': { id: 'ba-02', name: 'New Bottom Vanity', cost: 125.00, unit: 'LF', noAction: false },
+      'ba-03': { id: 'ba-03', name: 'Home Depot Vanity w/ Sink (18")', cost: 225.00, unit: 'ea.', noAction: false },
+      'ba-04': { id: 'ba-04', name: 'Toilet', cost: 150.00, unit: 'ea.', noAction: false },
+      'ba-05': { id: 'ba-05', name: 'Tile — Large Areas', cost: 5.80, unit: 'sqft', noAction: false },
+      'ba-06': { id: 'ba-06', name: 'Tile — Small Areas', cost: 10.00, unit: 'sqft', noAction: false },
+      'ba-07': { id: 'ba-07', name: 'Reglaze Tub or Chemical Clean', cost: 350.00, unit: 'ea.', noAction: false },
+      'ba-08': { id: 'ba-08', name: 'Reglaze Tub + Surround', cost: 750.00, unit: 'ea.', noAction: false },
+      'ba-09': { id: 'ba-09', name: 'Reglaze Shower', cost: 1325.00, unit: 'ea.', noAction: false },
+      'ba-10': { id: 'ba-10', name: 'Tiled Shower Tear Out + Tile Install', cost: 3100.00, unit: 'ea.', noAction: false },
+      'ba-11': { id: 'ba-11', name: 'Tub Tile Surround Tear Out + Tile Install (incl. tub)', cost: 2250.00, unit: 'ea.', noAction: false },
+      'ba-12': { id: 'ba-12', name: 'Shower Plastic Insert Tear Out + New Insert', cost: 825.00, unit: 'ea.', noAction: false },
+      'ba-13': { id: 'ba-13', name: 'Tub Tear Out + New Insert & Tub', cost: 1575.00, unit: 'ea.', noAction: false },
+      'ba-14': { id: 'ba-14', name: 'Undermount Sink', cost: 150.00, unit: 'ea.', noAction: false },
+      'ba-15': { id: 'ba-15', name: 'Mirror', cost: 200.00, unit: 'ea.', noAction: false },
+      'ba-16': { id: 'ba-16', name: 'HVL (needed if no window)', cost: 275.00, unit: 'ea.', noAction: false },
+
+      // Systems & Structure
+      'as-01': { id: 'as-01', name: 'Furnace', cost: 3350.00, unit: 'ea.', noAction: false, hasYear: true },
+      'as-02': { id: 'as-02', name: 'Condensing Unit', cost: 3300.00, unit: 'ea.', noAction: false, hasYear: true },
+      'as-03': { id: 'as-03', name: 'Package Unit', cost: 4700.00, unit: 'ea.', noAction: false },
+      'as-04': { id: 'as-04', name: 'A-Coil (if no condensing unit)', cost: 1625.00, unit: 'ea.', noAction: false },
+      'as-05': { id: 'as-05', name: 'Ducting (if NO HVAC)', cost: 3200.00, unit: 'ea.', noAction: false },
+      'as-06': { id: 'as-06', name: 'Duct Cleaning — Floor Vents', cost: 550.00, unit: 'ea.', noAction: false },
+      'as-07': { id: 'as-07', name: 'Window Unit Replacement 220', cost: 575.00, unit: 'ea.', noAction: false },
+      'as-08': { id: 'as-08', name: 'Hot Water Heater w/ Expansion Tank', cost: 1425.00, unit: 'ea.', noAction: false, hasYear: true },
+      'as-09': { id: 'as-09', name: 'Hot Water Heater Expansion Tank Only', cost: 200.00, unit: 'ea.', noAction: false },
+      'as-10': { id: 'as-10', name: 'Switches / Outlets', cost: 1400.00, unit: 'house', noAction: false },
+      'as-11': { id: 'as-11', name: 'Standard Electrical', cost: 1650.00, unit: 'house', noAction: false },
+      'as-12': { id: 'as-12', name: 'Subfloor', cost: 8.20, unit: 'sqft', noAction: false },
+      'as-13': { id: 'as-13', name: 'Framing', cost: 950.00, unit: 'variable', noAction: false },
+      'as-14': { id: 'as-14', name: 'Structural (Pier)', cost: 375.00, unit: 'pier', noAction: false },
+      'as-15': { id: 'as-15', name: 'Structural Foam Injection', cost: 5.85, unit: 'sqft of affected area', noAction: false },
+      'as-16': { id: 'as-16', name: 'Roof', cost: 1100.00, unit: '225 sqft L&M', noAction: false },
+      'as-17': { id: 'as-17', name: 'Plumbing', cost: 1000.00, unit: 'variable', noAction: false },
+      'as-18': { id: 'as-18', name: 'Electrical Panel Swap to 200A', cost: 2350.00, unit: 'ea.', noAction: false },
+      'as-19': { id: 'as-19', name: 'Full Electrical Rewire (to Studs)', cost: 5.65, unit: 'sqft', noAction: false },
+      'as-20': { id: 'as-20', name: 'Full Electrical Rewire (leaving Drywall)', cost: 9.15, unit: 'sqft', noAction: false },
+      'as-21': { id: 'as-21', name: 'Wall Insulation (to Studs)', cost: 1.20, unit: 'sqft', noAction: false },
+      'as-22': { id: 'as-22', name: 'Attic Insulation', cost: 1225.00, unit: '1,600 sqft house', noAction: false },
+      'as-23': { id: 'as-23', name: 'New Drywall to Studs (L&M)', cost: 5.20, unit: 'sqft', noAction: false },
+      'as-24': { id: 'as-24', name: 'Aluminum Wiring', cost: 2450.00, unit: 'variable', noAction: false },
+
+      // Exterior
+      'ex-01': { id: 'ex-01', name: 'Fence Repair — Chain Link / Wood Gate', cost: 225.00, unit: 'variable', noAction: false },
+      'ex-02': { id: 'ex-02', name: 'Fence Repair — Chain Link', cost: 275.00, unit: 'LF', noAction: false },
+      'ex-03': { id: 'ex-03', name: 'Fence Repair — Privacy 6ft', cost: 30.00, unit: 'LF', noAction: false },
+      'ex-04': { id: 'ex-04', name: 'Landscaping', cost: 450.00, unit: 'variable', noAction: false },
+      'ex-05': { id: 'ex-05', name: 'Vinyl Siding (10\'x10\')', cost: 300.00, unit: 'square', noAction: false },
+      'ex-06': { id: 'ex-06', name: 'Tuck Pointing', cost: 225.00, unit: 'variable', noAction: false },
+      'ex-07': { id: 'ex-07', name: 'Exterior Paint', cost: 2.60, unit: 'sqft', noAction: false },
+      'ex-08': { id: 'ex-08', name: 'Exterior Wood Repair', cost: 525.00, unit: 'variable', noAction: false },
+      'ex-09': { id: 'ex-09', name: 'Siding Repair (10\'x10\')', cost: 975.00, unit: 'section', noAction: false },
+      'ex-10': { id: 'ex-10', name: 'Tree Trimming', cost: 450.00, unit: 'variable', noAction: false },
+      'ex-11': { id: 'ex-11', name: 'Tree Removal (w/o stump)', cost: 1450.00, unit: 'tree', noAction: false },
+      'ex-12': { id: 'ex-12', name: 'Stump Grinding', cost: 250.00, unit: 'stump', noAction: false },
+      'ex-13': { id: 'ex-13', name: 'Aluminum Window Paint (Int/Ext)', cost: 700.00, unit: 'house', noAction: false },
+      'ex-14': { id: 'ex-14', name: 'Windows (3x5 sash)', cost: 425.00, unit: 'ea.', noAction: false },
+      'ex-15': { id: 'ex-15', name: 'Window Repair — Non-Insulated (6x6+)', cost: 35.00, unit: 'sf', noAction: false },
+      'ex-16': { id: 'ex-16', name: 'Window Repair — Insulated (6x6+)', cost: 40.00, unit: 'sf', noAction: false },
+      'ex-17': { id: 'ex-17', name: 'Aluminum Framed Window Pane', cost: 100.00, unit: 'pane', noAction: false },
+      'ex-18': { id: 'ex-18', name: 'Guttering', cost: 4.15, unit: 'LF', noAction: false },
+      'ex-19': { id: 'ex-19', name: 'Concrete w/ Demo', cost: 200.00, unit: 'sqft', noAction: false },
+      'ex-20': { id: 'ex-20', name: 'Mowing (summer, every 2 weeks)', cost: 45.00, unit: 'mowing', noAction: false },
+      'ex-21': { id: 'ex-21', name: 'Garage Door — 1 Car', cost: 975.00, unit: 'ea.', noAction: false },
+      'ex-22': { id: 'ex-22', name: 'Garage Door — 2 Car (Installed)', cost: 1225.00, unit: 'ea.', noAction: false },
+      'ex-23': { id: 'ex-23', name: 'Garage Conversion', cost: 8850.00, unit: 'ea.', noAction: false }
+    };
+
+    console.log('✅ Data layer loaded:', Object.keys(ITEMS).length, 'items,', Object.keys(GROUPS).length, 'groups');
+  </script>
+
+  <!-- =====================================================
+       STATE MANAGEMENT & LOCAL STORAGE
+  ====================================================== -->
+  <script>
+    /* === STATE === */
+    const state = {
+      currentProjectId: null,
+      projects: [],
+      priceOverrides: {},
+      currentSection: 0,
+      expandedGroups: [],
+      currentRoomId: null,
+      photoCache: {},
+      showSummary: false
+    };
+
+    /* === HELPERS === */
+    function isRoomBound(itemId) {
+      return itemId.startsWith('ba-');
+    }
+
+    function generateId(prefix = '') {
+      return prefix + Date.now() + '_' + Math.random().toString(36).toString(16).substr(2, 9);
+    }
+
+    function getDefaultItemState() {
+      return {
+        checked: false,
+        qty: '',
+        year: '',
+        notes: '',
+        priceOverride: null
+      };
+    }
+
+    /* === PROJECT CRUD === */
+    function loadProjects() {
+      try {
+        const raw = localStorage.getItem('spark_projects_v1');
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        console.error('Failed to load projects:', e);
+        return [];
+      }
+    }
+
+    function saveProjects() {
+      try {
+        localStorage.setItem('spark_projects_v1', JSON.stringify(state.projects));
+      } catch (e) {
+        console.error('Failed to save projects:', e);
+      }
+    }
+
+    function loadPriceOverrides() {
+      try {
+        const raw = localStorage.getItem('spark_price_overrides_v1');
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        console.error('Failed to load price overrides:', e);
+        return {};
+      }
+    }
+
+    function savePriceOverrides() {
+      try {
+        localStorage.setItem('spark_price_overrides_v1', JSON.stringify(state.priceOverrides));
+      } catch (e) {
+        console.error('Failed to save price overrides:', e);
+      }
+    }
+
+    function createProject(name) {
+      const newProj = {
+        id: generateId('proj_'),
+        name: name || 'New Estimate',
+        items: {},
+        rooms: [
+          { id: generateId('room_ba_'), type: 'bathroom', name: 'Bathroom 1' },
+          { id: generateId('room_ba_'), type: 'bathroom', name: 'Bathroom 2' }
+        ],
+        photos: {}
+      };
+      
+      initializeProjectItems(newProj);
+      state.projects.push(newProj);
+      state.currentProjectId = newProj.id;
+      
+      saveProjects();
+      scheduleSave();
+      
+      console.log(`Created project: ${newProj.name} (${newProj.id})`);
+    }
+
+    function deleteProject(id) {
+      state.projects = state.projects.filter(p => p.id !== id);
+      if (state.currentProjectId === id) {
+        if (state.projects.length > 0) {
+          state.currentProjectId = state.projects[0].id;
+        } else {
+          createProject('New Estimate');
+        }
+      }
+      saveProjects();
+      scheduleSave();
+    }
+
+    function renameProject(id, newName) {
+      const proj = state.projects.find(p => p.id === id);
+      if (proj) {
+        proj.name = newName;
+        saveProjects();
+        scheduleSave();
+      }
+    }
+
+    function switchProject(id) {
+      const proj = state.projects.find(p => p.id === id);
+      if (proj) {
+        state.currentProjectId = id;
+        initializeProjectItems(proj);
+        scheduleSave();
+        if (typeof loadPhotosForProject === 'function') {
+          loadPhotosForProject(id).then(() => {
+            if (typeof render === 'function') render();
+          });
+        } else {
+          if (typeof render === 'function') render();
+        }
+      }
+    }
+
+    function getCurrentProject() {
+      return state.projects.find(p => p.id === state.currentProjectId) || null;
+    }
+
+    /* === ROOM MANAGEMENT === */
+    function addRoom(projectId, type, name) {
+      const proj = state.projects.find(p => p.id === projectId);
+      if (!proj) return;
+
+      const count = proj.rooms.filter(r => r.type === type).length + 1;
+      const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+      const roomName = name || `${typeLabel} ${count}`;
+
+      const newRoom = {
+        id: generateId(`room_${type.substring(0, 2)}_`),
+        type: type,
+        name: roomName
+      };
+
+      proj.rooms.push(newRoom);
+      
+      if (type === 'bathroom') {
+        Object.keys(ITEMS).forEach(itemId => {
+          if (itemId.startsWith('ba-')) {
+            const key = `${newRoom.id}:${itemId}`;
+            if (!proj.items[key]) {
+              proj.items[key] = getDefaultItemState();
+            }
+          }
+        });
+      } else if (type === 'bedroom' || type === 'living') {
+        Object.keys(ITEMS).forEach(itemId => {
+          if (itemId.startsWith('ig-')) {
+            const key = `${newRoom.id}:${itemId}`;
+            if (!proj.items[key]) {
+              proj.items[key] = getDefaultItemState();
+            }
+          }
+        });
+      }
+
+      scheduleSave();
+      console.log(`Added room: ${roomName} (${newRoom.id}) to project ${proj.name}`);
+      return newRoom.id;
+    }
+
+    async function removeRoom(projectId, roomId) {
+      const proj = state.projects.find(p => p.id === projectId);
+      if (!proj) return;
+
+      proj.rooms = proj.rooms.filter(r => r.id !== roomId);
+
+      Object.keys(proj.items).forEach(key => {
+        if (key.startsWith(`${roomId}:`)) {
+          delete proj.items[key];
+        }
+      });
+      
+      if (proj.customItems) {
+        proj.customItems = proj.customItems.filter(item => item.roomId !== roomId);
+      }
+      
+      const photoPromises = [];
+      if (state.photoCache && state.photoCache[projectId]) {
+        Object.keys(state.photoCache[projectId]).forEach(key => {
+          const photos = state.photoCache[projectId][key];
+          photos.forEach(photo => {
+            if (photo.roomId === roomId) {
+              if (typeof deletePhoto === 'function') {
+                photoPromises.push(deletePhoto(projectId, photo.itemId, roomId, photo.id));
+              }
+            }
+          });
+        });
+      }
+      
+      if (photoPromises.length > 0) {
+        try {
+          await Promise.all(photoPromises);
+        } catch (e) {
+          console.error("Failed to delete orphaned photos:", e);
+        }
+      }
+      
+      scheduleSave();
+      console.log(`Removed room ${roomId} from project ${proj.name}`);
+    }
+
+    /* === ITEM STATE === */
+    function getItemState(project, itemId, roomId = null) {
+      const key = roomId ? `${roomId}:${itemId}` : itemId;
+      if (!project.items[key]) {
+        project.items[key] = getDefaultItemState();
+      }
+      return project.items[key];
+    }
+
+    function updateItem(projectId, itemId, roomId, updates) {
+      const proj = state.projects.find(p => p.id === projectId);
+      if (!proj) return;
+
+      const key = roomId ? `${roomId}:${itemId}` : itemId;
+      if (!proj.items[key]) {
+        proj.items[key] = getDefaultItemState();
+      }
+
+      proj.items[key] = {
+        ...proj.items[key],
+        ...updates
+      };
+
+      scheduleSave();
+    }
+
+    function initializeProjectItems(project) {
+      if (!project.items) project.items = {};
+      if (!project.photos) project.photos = {};
+      if (!project.customItems) project.customItems = [];
+
+      Object.keys(ITEMS).forEach(itemId => {
+        if (!isRoomBound(itemId)) {
+          if (!project.items[itemId]) {
+            project.items[itemId] = getDefaultItemState();
+          }
+        }
+      });
+
+      project.rooms.forEach(room => {
+        if (room.type === 'bathroom') {
+          Object.keys(ITEMS).forEach(itemId => {
+            if (isRoomBound(itemId)) {
+              const key = `${room.id}:${itemId}`;
+              if (!project.items[key]) {
+                project.items[key] = getDefaultItemState();
+              }
+            }
+          });
+        }
+      });
+
+      // Initialize state for custom items
+      project.customItems.forEach(item => {
+        const key = item.roomId ? `${item.roomId}:${item.id}` : item.id;
+        if (!project.items[key]) {
+          project.items[key] = getDefaultItemState();
+        }
+      });
+    }
+
+    /* === AUTO-SAVE === */
+    let saveTimeout = null;
+    function scheduleSave() {
+      if (saveTimeout) clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(() => {
+        saveProjects();
+        savePriceOverrides();
+        console.log('💾 Auto-saved state to localStorage');
+      }, 800);
+    }
+
+    /* === INIT === */
+    (function init() {
+      state.projects = loadProjects();
+      state.priceOverrides = loadPriceOverrides();
+
+      if (state.projects.length === 0) {
+        createProject('New Estimate');
+      } else {
+        state.currentProjectId = state.projects[0].id;
+        const currentProj = getCurrentProject();
+        initializeProjectItems(currentProj);
+      }
+
+      // Load photos cache for active project
+      setTimeout(() => {
+        if (state.currentProjectId && typeof loadPhotosForProject === 'function') {
+          loadPhotosForProject(state.currentProjectId).then(() => {
+            if (typeof render === 'function') render();
+          });
+        }
+      }, 50);
+
+      // Expose to window for debugging and testing
+      window.__state = state;
+      window.__debug = {
+        createProject,
+        deleteProject,
+        renameProject,
+        switchProject,
+        getCurrentProject,
+        getItemState,
+        updateItem,
+        addRoom,
+        removeRoom,
+        getDefaultItemState,
+        initializeProjectItems,
+        scheduleSave
+      };
+
+      const activeProj = getCurrentProject();
+      console.log(`✅ State manager initialised. Active project: ${state.currentProjectId} (${activeProj.name})`);
+      
+      // Trigger initial render if defined
+      setTimeout(() => {
+        if (typeof render === 'function') render();
+      }, 0);
+    })();
+  </script>
+
+  <!-- =====================================================
+       RENDER ENGINE & VIEW LAYER
+  ====================================================== -->
+  <script>
+    /* === HELPERS === */
+    function formatCurrency(num) {
+      return '$' + Math.round(num).toLocaleString('en-US');
+    }
+
+    function getProjectItems(project) {
+      if (!project || !project.customItems) return ITEMS;
+      const combined = { ...ITEMS };
+      project.customItems.forEach(item => {
+        combined[item.id] = item;
+      });
+      return combined;
+    }
+
+    function getItemDefinition(itemId) {
+      if (ITEMS[itemId]) return ITEMS[itemId];
+      const project = getCurrentProject();
+      if (project && project.customItems) {
+        return project.customItems.find(item => item.id === itemId) || null;
+      }
+      return null;
+    }
+
+    function getItemCost(item, itemState) {
+      if (itemState && itemState.priceOverride !== null && itemState.priceOverride !== undefined) {
+        return itemState.priceOverride;
+      }
+      if (state.priceOverrides && state.priceOverrides[item.id] !== undefined) {
+        return state.priceOverrides[item.id];
+      }
+      return item.cost;
+    }
+
+    function getItemTotal(item, itemState) {
+      if (!itemState || !itemState.checked) return 0;
+      const qty = parseFloat(itemState.qty) || 0;
+      if (qty <= 0) return 0;
+      const cost = getItemCost(item, itemState);
+      return qty * cost;
+    }
+
+    function getGroupTotal(group, project, roomId = null) {
+      return group.ids.reduce((sum, itemId) => {
+        const item = ITEMS[itemId];
+        if (!item) return sum;
+        const key = roomId ? `${roomId}:${itemId}` : itemId;
+        if (!project.items[key]) return sum;
+        const itemState = getItemState(project, itemId, roomId);
+        return sum + getItemTotal(item, itemState);
+      }, 0);
+    }
+
+    function getSectionTotal(sectionId, project) {
+      const allItems = getProjectItems(project);
+      
+      if (sectionId === 'bathroom') {
+        return project.rooms
+          .filter(r => r.type === 'bathroom')
+          .reduce((sum, room) => {
+            return sum + Object.keys(allItems)
+              .filter(id => id.startsWith('ba-') || (allItems[id].custom && allItems[id].sectionId === 'bathroom' && allItems[id].roomId === room.id))
+              .reduce((s, id) => s + getItemTotal(allItems[id], getItemState(project, id, room.id)), 0);
+          }, 0);
+      }
+      
+      if (sectionId === 'interior') {
+        const globalSum = Object.keys(allItems)
+          .filter(id => id.startsWith('ig-') || (allItems[id].custom && allItems[id].sectionId === 'interior' && !allItems[id].roomId))
+          .reduce((s, id) => s + getItemTotal(allItems[id], getItemState(project, id, null)), 0);
+          
+        const roomSum = project.rooms
+          .filter(r => r.type === 'bedroom' || r.type === 'living')
+          .reduce((sum, room) => {
+            return sum + Object.keys(allItems)
+              .filter(id => id.startsWith('ig-') || (allItems[id].custom && allItems[id].sectionId === 'interior' && allItems[id].roomId === room.id))
+              .reduce((s, id) => s + getItemTotal(allItems[id], getItemState(project, id, room.id)), 0);
+          }, 0);
+          
+        return globalSum + roomSum;
+      }
+      
+      const prefix = { kitchen: 'kt-', systems: 'as-', exterior: 'ex-' }[sectionId];
+      return Object.keys(allItems)
+        .filter(id => id.startsWith(prefix) || (allItems[id].custom && allItems[id].sectionId === sectionId))
+        .reduce((s, id) => s + getItemTotal(allItems[id], getItemState(project, id, null)), 0);
+    }
+
+    function getRunningTotal(project) {
+      if (!project) return 0;
+      return SECTIONS.reduce((sum, sec) => sum + getSectionTotal(sec.id, project), 0);
+    }
+
+    function getSectionProgress(sectionId, project) {
+      const sectionGroups = Object.entries(GROUPS).filter(([_, g]) => g.section === sectionId);
+      let totalGroups = 0;
+      let checkedGroups = 0;
+
+      if (sectionId === 'bathroom') {
+        const rooms = project.rooms.filter(r => r.type === 'bathroom');
+        rooms.forEach(room => {
+          sectionGroups.forEach(([groupId, group]) => {
+            const remainingIds = group.ids;
+            if (remainingIds.length === 0) return;
+            totalGroups++;
+            const isChecked = remainingIds.some(itemId => getItemState(project, itemId, room.id).checked);
+            if (isChecked) checkedGroups++;
+          });
+        });
+      } else if (sectionId === 'interior') {
+        sectionGroups.forEach(([groupId, group]) => {
+          const remainingIds = group.ids;
+          if (remainingIds.length === 0) return;
+          totalGroups++;
+          const isChecked = remainingIds.some(itemId => getItemState(project, itemId, null).checked);
+          if (isChecked) checkedGroups++;
+        });
+
+        const rooms = project.rooms.filter(r => r.type === 'bedroom' || r.type === 'living');
+        rooms.forEach(room => {
+          sectionGroups.forEach(([groupId, group]) => {
+            const remainingIds = group.ids;
+            if (remainingIds.length === 0) return;
+            totalGroups++;
+            const isChecked = remainingIds.some(itemId => getItemState(project, itemId, room.id).checked);
+            if (isChecked) checkedGroups++;
+          });
+        });
+      } else {
+        sectionGroups.forEach(([groupId, group]) => {
+          const remainingIds = group.ids;
+          if (remainingIds.length === 0) return;
+          totalGroups++;
+          const isChecked = remainingIds.some(itemId => getItemState(project, itemId, null).checked);
+          if (isChecked) checkedGroups++;
+        });
+      }
+
+      return { totalGroups, checkedGroups };
+    }
+
+    function getGlobalProgress(project) {
+      let total = 0;
+      let checked = 0;
+      SECTIONS.forEach(sec => {
+        const p = getSectionProgress(sec.id, project);
+        total += p.totalGroups;
+        checked += p.checkedGroups;
+      });
+      return { total, checked };
+    }
+
+    function getCheckedItemsCount(sectionId, project) {
+      const allItems = getProjectItems(project);
+      
+      if (sectionId === 'bathroom') {
+        return project.rooms
+          .filter(r => r.type === 'bathroom')
+          .reduce((sum, room) => {
+            return sum + Object.keys(allItems)
+              .filter(id => id.startsWith('ba-') || (allItems[id].custom && allItems[id].sectionId === 'bathroom' && allItems[id].roomId === room.id))
+              .filter(id => getItemState(project, id, room.id).checked).length;
+          }, 0);
+      }
+      if (sectionId === 'interior') {
+        const globalChecked = Object.keys(allItems)
+          .filter(id => id.startsWith('ig-') || (allItems[id].custom && allItems[id].sectionId === 'interior' && !allItems[id].roomId))
+          .filter(id => getItemState(project, id, null).checked).length;
+        const roomChecked = project.rooms
+          .filter(r => r.type === 'bedroom' || r.type === 'living')
+          .reduce((sum, room) => {
+            return sum + Object.keys(allItems)
+              .filter(id => id.startsWith('ig-') || (allItems[id].custom && allItems[id].sectionId === 'interior' && allItems[id].roomId === room.id))
+              .filter(id => getItemState(project, id, room.id).checked).length;
+          }, 0);
+        return globalChecked + roomChecked;
+      }
+      const prefix = { kitchen: 'kt-', systems: 'as-', exterior: 'ex-' }[sectionId];
+      return Object.keys(allItems)
+        .filter(id => id.startsWith(prefix) || (allItems[id].custom && allItems[id].sectionId === sectionId))
+        .filter(id => getItemState(project, id, null).checked).length;
+    }
+
+    function isItemInAnyGroup(itemId) {
+      return Object.values(GROUPS).some(g => g.ids.includes(itemId));
+    }
+
+    function getSectionStandaloneItems(sectionId, roomId = null) {
+      const prefix = {
+        interior: 'ig-',
+        kitchen: 'kt-',
+        bathroom: 'ba-',
+        systems: 'as-',
+        exterior: 'ex-'
+      }[sectionId];
+      
+      const project = getCurrentProject();
+      const allItems = getProjectItems(project);
+      
+      return Object.values(allItems).filter(item => {
+        const key = roomId ? `${roomId}:${item.id}` : item.id;
+        if (project.hiddenItems && (project.hiddenItems.includes(key) || project.hiddenItems.includes(item.id))) return false;
+        
+        if (!item.custom && !project.items[key]) {
+          return false;
+        }
+        if (item.custom) {
+          return item.sectionId === sectionId && item.roomId === roomId;
+        }
+        return item.id.startsWith(prefix) && !item.noAction && !isItemInAnyGroup(item.id);
+      });
+    }
+
+    function renderSectionStandaloneItems(sectionId, project, roomId) {
+      const items = getSectionStandaloneItems(sectionId, roomId);
+      const itemsHtml = items.map(item => renderItemCard(item, project, roomId)).join('');
+      return `
+        <div class="standalone-items-container" style="margin-top: 20px; border-left: 3px solid var(--accent); padding-left: 12px;">
+          <h4 style="margin: 0 0 12px 0; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Other / Misc Items</h4>
+          <div class="standalone-items" style="display:flex;flex-direction:column;gap:8px;">
+            ${itemsHtml}
+            <button class="btn-add-custom" data-action="add-custom-item" data-section-id="${sectionId}" data-room-id="${roomId || 'null'}" style="margin-top: 4px;">
+              ➕ Add Custom Item
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderSummary(project) {
+      const mainEl = document.getElementById('main-content');
+      let html = `<div class="card" style="padding:20px;"><h2>Project Summary</h2><table style="width:100%;border-collapse:collapse;">`;
+      let grandTotal = 0;
+      SECTIONS.forEach(sec => {
+        const total = getSectionTotal(sec.id, project);
+        grandTotal += total;
+        html += `<tr><td>${sec.label}</td><td style="text-align:right;">${formatCurrency(total)}</td></tr>`;
+      });
+      html += `<tr><td style="border-top:2px solid #000;font-weight:bold;">Grand Total</td><td style="border-top:2px solid #000;text-align:right;font-weight:bold;">${formatCurrency(grandTotal)}</td></tr>`;
+      html += `</table><button class="nav-btn" data-action="switch-section" data-index="0" style="margin-top:20px;">Back to Estimate</button></div>`;
+      mainEl.innerHTML = html;
+    }
+
+    /* === RENDER ENGINE === */
+    function render() {
+      const project = getCurrentProject();
+      if (!project) return;
+      if (state.showSummary) {
+        renderSummary(project);
+        return;
+      }
+      
+      // 1. Update header
+      const total = getRunningTotal(project);
+      document.getElementById('header-total').textContent = formatCurrency(total);
+      document.getElementById('header-project-name').textContent = project.name;
+      
+      const progress = getGlobalProgress(project);
+      const progressPct = progress.total > 0 ? (progress.checked / progress.total) * 100 : 0;
+      document.getElementById('header-progress-fill').style.width = `${progressPct}%`;
+      document.getElementById('header-progress-text').textContent = `${progress.checked}/${progress.total} groups reviewed`;
+      
+      // 2. Render Section Tabs
+      renderSectionTabs(project);
+      
+      // 3. Render Content Area
+      const mainEl = document.getElementById('main-content');
+      const section = SECTIONS[state.currentSection];
+      let contentHtml = '';
+      
+      // Render sub-tabs if interior or bathroom
+      if (section.id === 'bathroom') {
+        const bathrooms = project.rooms.filter(r => r.type === 'bathroom');
+        if (bathrooms.length > 0 && (!state.currentRoomId || !bathrooms.some(r => r.id === state.currentRoomId))) {
+          state.currentRoomId = bathrooms[0].id;
+        }
+        contentHtml += renderBathroomSubTabs(project);
+      } else if (section.id === 'interior') {
+        contentHtml += renderInteriorSubTabs(project);
+      } else {
+        state.currentRoomId = null;
+      }
+      
+      // Render groups
+      const sectionGroups = Object.entries(GROUPS).filter(([_, g]) => g.section === section.id);
+      const groupsHtml = sectionGroups.map(([groupId, group]) => {
+        return renderGroupCard(groupId, group, project, state.currentRoomId);
+      }).join('');
+      
+      contentHtml += `
+        <div class="groups-list" style="display: flex; flex-direction: column; width: 100%;">
+          ${groupsHtml}
+        </div>
+      `;
+      
+      // Render standalone items
+      contentHtml += renderSectionStandaloneItems(section.id, project, state.currentRoomId);
+      
+      mainEl.innerHTML = contentHtml;
+      
+      // 4. Render Bottom Nav
+      renderBottomNav();
+      
+      if (typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('deal-needs-refresh'));
+      }
+    }
+
+    /* === SECTION RENDERERS === */
+    function renderSectionTabs(project) {
+      const tabsEl = document.getElementById('section-tabs');
+      tabsEl.innerHTML = SECTIONS.map((sec, idx) => {
+        const active = idx === state.currentSection ? 'active' : '';
+        const count = getCheckedItemsCount(sec.id, project);
+        const badge = count > 0 ? `<span class="tab-badge">${count}</span>` : '';
+        return `
+          <button class="tab-item ${active}" data-action="switch-section" data-index="${idx}">
+            ${sec.label}
+            ${badge}
+          </button>
+        `;
+      }).join('');
+    }
+
+    /* === GROUP RENDERERS === */
+    function renderGroupCard(groupId, group, project, roomId) {
+      const isExpanded = state.expandedGroups.includes(groupId);
+      const total = getGroupTotal(group, project, roomId);
+      const chevron = isExpanded ? '▼' : '▶';
+      const expandedClass = isExpanded ? 'expanded' : '';
+      
+      const visibleItems = group.ids.filter(id => {
+        const key = roomId ? `${roomId}:${id}` : id;
+        return !(project.hiddenItems && (project.hiddenItems.includes(key) || project.hiddenItems.includes(id)));
+      });
+      const previewText = visibleItems.slice(0, 3).map(id => ITEMS[id] ? ITEMS[id].name : '').join(', ') + (visibleItems.length > 3 ? '...' : '');
+
+      const itemsHtml = group.ids.map(itemId => {
+        const item = ITEMS[itemId];
+        if (!item) return '';
+        const key = roomId ? `${roomId}:${itemId}` : itemId;
+        if (project.hiddenItems && (project.hiddenItems.includes(key) || project.hiddenItems.includes(itemId))) return '';
+        return renderItemCard(item, project, roomId);
+      }).join('');
+
+      const totalLabel = total > 0 ? formatCurrency(total) : '—';
+      const totalClass = total > 0 ? '' : 'zero';
+
+      return `
+        <div class="group-card ${expandedClass}" data-group-id="${groupId}">
+          <button class="group-header" data-action="toggle-group" data-group-id="${groupId}">
+            <div class="group-title-container">
+              <span class="group-chevron">${chevron}</span>
+              <div style="display:flex; flex-direction:column; align-items:flex-start;">
+                <span class="group-title">${group.label} <span style="font-weight:normal; font-size:0.85em; opacity:0.6; margin-left:4px;">(${visibleItems.length})</span></span>
+                ${!isExpanded && previewText ? `<span style="font-size: 0.75rem; font-weight:400; color:var(--text-muted); margin-top:2px;">${previewText}</span>` : ''}
+              </div>
+            </div>
+            <span class="group-total-label ${totalClass}">${totalLabel}</span>
+          </button>
+          <div class="group-body">
+            ${itemsHtml}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderItemCard(item, project, roomId) {
+      const itemState = getItemState(project, item.id, roomId);
+      const isChecked = itemState.checked;
+      const checkedClass = isChecked ? 'checked' : '';
+      const total = getItemTotal(item, itemState);
+      const cost = getItemCost(item, itemState);
+      
+      const isProjectOverridden = itemState && itemState.priceOverride !== null;
+      const isGlobalOverridden = state.priceOverrides && state.priceOverrides[item.id] !== undefined;
+      const hasOverride = isProjectOverridden || isGlobalOverridden;
+      
+      const costClass = hasOverride ? 'price-overridden' : '';
+      const overrideIndicator = isProjectOverridden ? ' ✏️' : (isGlobalOverridden ? ' 🌐' : '');
+      const uniqueId = roomId ? `${roomId}:${item.id}` : item.id;
+      
+      const costStyle = hasOverride ? 'color: var(--accent); border-bottom: 1px dotted var(--accent);' : '';
+
+      const costLabel = `
+        <button class="cost-override-btn ${costClass}" data-action="override-price" data-id="${uniqueId}" title="Click to override unit price" style="${costStyle}">
+          ${formatCurrency(cost)} / ${item.unit}${overrideIndicator}
+        </button>
+      `;
+
+      if (item.noAction) {
+        return `
+          <div class="item-card ${checkedClass}" data-item-id="${item.id}" data-action="toggle-item" data-id="${uniqueId}" style="cursor: pointer;">
+            <div class="item-checkbox">
+              ${isChecked ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+            </div>
+            <div class="item-details">
+              <p class="item-name" style="font-style: italic; color: var(--text-muted);">No Action Needed</p>
+            </div>
+          </div>
+        `;
+      }
+
+      const photos = (state.photoCache && state.photoCache[project.id] && state.photoCache[project.id][uniqueId]) || [];
+      const photosHtml = photos.length > 0 ? `
+        <div class="item-photos-section">
+          <div class="photo-grid">
+            ${photos.map(p => `
+              <div class="photo-thumbnail-container">
+                <img src="${p.dataUrl}" class="photo-thumbnail" alt="thumbnail" />
+                <button class="photo-delete-btn" data-action="delete-photo" data-photo-id="${p.id}" data-item-id="${item.id}" data-room-id="${roomId || 'null'}">×</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : '';
+
+      return `
+        <div class="item-card ${checkedClass}" data-item-id="${item.id}" data-action="toggle-item" data-id="${uniqueId}" style="cursor: pointer;">
+          <div class="item-checkbox">
+            ${isChecked ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+          </div>
+          <div class="item-details">
+            <div class="item-name-row">
+              <span class="item-name">${item.name}</span>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                ${item.custom ? `
+                  <button class="btn-delete-custom" data-action="delete-custom" data-id="${item.id}" data-room-id="${roomId || 'null'}" title="Delete Custom Item">
+                    🗑️
+                  </button>
+                ` : `
+                  <button class="btn-delete-custom" data-action="delete-standard" data-id="${item.id}" data-room-id="${roomId || 'null'}" title="Remove standard item from this estimate">
+                    🗑️
+                  </button>
+                `}
+                ${isChecked && total > 0 ? `<span class="item-line-total">${formatCurrency(total)}</span>` : ''}
+              </div>
+            </div>
+            <span class="item-meta">${costLabel}</span>
+            
+            ${isChecked ? `
+              <div class="item-inputs-row">
+                <div class="item-input-container">
+                  <span class="item-input-label">Qty</span>
+                  <input
+                    type="number"
+                    class="item-qty-input"
+                    data-action="update-qty"
+                    data-id="${uniqueId}"
+                    value="${itemState.qty}"
+                    placeholder="0"
+                    min="0"
+                    step="any"
+                    inputmode="decimal"
+                  />
+                  <span class="item-unit-label">${item.unit}</span>
+                </div>
+                
+                ${item.hasYear ? `
+                  <div class="item-input-container" style="flex:1;">
+                    <span class="item-input-label">Year/Serial</span>
+                    <input
+                      type="text"
+                      class="item-qty-input"
+                      style="text-align:left; padding-left:8px;"
+                      data-action="update-year"
+                      data-id="${uniqueId}"
+                      value="${itemState.year || ''}"
+                      placeholder="e.g. 2018 or SN123"
+                    />
+                  </div>
+                ` : ''}
+                
+                <button class="btn-add-photo" data-action="add-photo" data-id="${uniqueId}">
+                  📷 Photo
+                </button>
+              </div>
+              
+              ${photosHtml}
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    /* === ROOM RENDERERS === */
+    function renderBathroomSubTabs(project) {
+      const rooms = project.rooms.filter(r => r.type === 'bathroom');
+      const tabs = rooms.map(room => {
+        const active = room.id === state.currentRoomId ? 'active' : '';
+        return `
+          <div class="room-tab ${active}" data-action="switch-room" data-room-id="${room.id}">
+            <span>${room.name}</span>
+            ${rooms.length > 1 ? `
+              <button class="room-tab-btn-icon" data-action="rename-room" data-room-id="${room.id}" title="Rename">✏️</button>
+              <button class="room-tab-btn-icon" data-action="delete-room" data-room-id="${room.id}" title="Delete">🗑️</button>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 12px; gap:8px;">
+          <div class="room-tabs-container scroll-x" style="flex:1; margin-bottom: 0;">
+            ${tabs}
+          </div>
+          <button class="room-btn-add" data-action="add-room" data-room-type="bathroom" style="flex-shrink:0; border: 1.5px solid var(--accent); background: transparent; color: var(--accent); padding: 6px 14px; border-radius: 20px; font-weight: 600;">＋ Bath</button>
+        </div>
+      `;
+    }
+
+    function renderInteriorSubTabs(project) {
+      const isGeneralActive = state.currentRoomId === null ? 'active' : '';
+      const rooms = project.rooms.filter(r => r.type === 'bedroom' || r.type === 'living');
+      
+      const generalTab = `
+        <div class="room-tab ${isGeneralActive}" data-action="switch-room" data-room-id="null">
+          <span>General</span>
+        </div>
+      `;
+      
+      const roomTabs = rooms.map(room => {
+        const active = room.id === state.currentRoomId ? 'active' : '';
+        return `
+          <div class="room-tab ${active}" data-action="switch-room" data-room-id="${room.id}">
+            <span>${room.name}</span>
+            <button class="room-tab-btn-icon" data-action="rename-room" data-room-id="${room.id}" title="Rename">✏️</button>
+            <button class="room-tab-btn-icon" data-action="delete-room" data-room-id="${room.id}" title="Delete">🗑️</button>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 12px; gap:8px;">
+          <div class="room-tabs-container scroll-x" style="flex:1; margin-bottom: 0;">
+            ${generalTab}
+            ${roomTabs}
+          </div>
+          <div style="display:flex; gap:8px; flex-shrink:0;">
+            <button class="room-btn-add" data-action="add-room" data-room-type="bedroom" style="border: 1.5px solid var(--accent); background: transparent; color: var(--accent); padding: 6px 14px; border-radius: 20px; font-weight: 600;">＋ Bed</button>
+            <button class="room-btn-add" data-action="add-room" data-room-type="living" style="border: 1.5px solid var(--accent); background: transparent; color: var(--accent); padding: 6px 14px; border-radius: 20px; font-weight: 600;">＋ Living</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderBottomNav() {
+      const navEl = document.getElementById('bottom-nav');
+      const isFirst = state.currentSection === 0;
+      const isLast = state.currentSection === SECTIONS.length - 1;
+      
+      const prevBtn = isFirst ? '' : `
+        <button class="nav-btn nav-btn-prev" data-action="prev-section">Previous</button>
+      `;
+      
+      const nextBtn = isLast ? `
+        <button class="nav-btn nav-btn-next" data-action="view-summary">View Summary</button>
+      ` : `
+        <button class="nav-btn nav-btn-next" data-action="next-section">Next</button>
+      `;
+      
+      navEl.innerHTML = `${prevBtn}${nextBtn}`;
+    }
+
+    /* === ROOM MANAGEMENT INNER === */
+    function handleRenameRoom(roomId) {
+      const project = getCurrentProject();
+      if (!project) return;
+      const room = project.rooms.find(r => r.id === roomId);
+      if (!room) return;
+      const newName = prompt('Enter new room name:', room.name);
+      if (newName && newName.trim()) {
+        room.name = newName.trim();
+        scheduleSave();
+        render();
+      }
+    }
+
+    async function handleDeleteRoom(roomId) {
+      const project = getCurrentProject();
+      if (!project) return;
+      const room = project.rooms.find(r => r.id === roomId);
+      if (!room) return;
+      if (confirm(`Are you sure you want to delete ${room.name}?`)) {
+        await removeRoom(project.id, roomId);
+        if (state.currentRoomId === roomId) {
+          state.currentRoomId = null;
+        }
+        render();
+      }
+    }
+
+    function handleAddRoom(type) {
+      const project = getCurrentProject();
+      if (!project) return;
+      const name = prompt(`Enter new ${type} name:`);
+      if (name === null) return; // Cancelled
+      const newRoomId = addRoom(project.id, type, name);
+      if (newRoomId) {
+        state.currentRoomId = newRoomId;
+        render();
+        setTimeout(() => {
+          const newTab = document.querySelector(`[data-room-id="${newRoomId}"]`);
+          if (newTab) newTab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }, 50);
+      }
+    }
+
+    /* === EVENT BINDING === */
+    document.body.addEventListener('click', async e => {
+      const actionBtn = e.target.closest('[data-action]');
+      if (!actionBtn) return;
+      
+      const action = actionBtn.dataset.action;
+      const dataset = actionBtn.dataset;
+      const project = getCurrentProject();
+      
+      switch (action) {
+        case 'open-settings':
+          document.getElementById('settings-modal').classList.add('open');
+          if (typeof updateResetButtonVisibility === 'function') {
+            updateResetButtonVisibility();
+          }
+          break;
+        case 'close-settings':
+          document.getElementById('settings-modal').classList.remove('open');
+          break;
+        case 'override-price':
+          e.stopPropagation();
+          if (typeof handleOverridePrice === 'function') {
+            handleOverridePrice(dataset.id);
+          }
+          break;
+        case 'add-custom-item':
+          if (typeof handleAddCustomItem === 'function') {
+            const sectId = dataset.sectionId;
+            const rId = dataset.roomId === 'null' ? null : dataset.roomId;
+            handleAddCustomItem(sectId, rId);
+          }
+          break;
+        case 'delete-custom':
+          e.stopPropagation();
+          if (typeof handleDeleteCustomItem === 'function') {
+            const custItemId = dataset.id;
+            const custItemRoomId = dataset.roomId === 'null' ? null : dataset.roomId;
+            handleDeleteCustomItem(custItemId, custItemRoomId);
+          }
+          break;
+        case 'switch-section':
+          state.currentSection = parseInt(dataset.index);
+          state.currentRoomId = null;
+          state.showSummary = false;
+          render();
+          break;
+        case 'switch-room':
+          state.currentRoomId = dataset.roomId === 'null' ? null : dataset.roomId;
+          render();
+          break;
+        case 'add-room':
+          handleAddRoom(dataset.roomType);
+          break;
+        case 'rename-room':
+          e.stopPropagation();
+          handleRenameRoom(dataset.roomId);
+          break;
+        case 'delete-room':
+          e.stopPropagation();
+          await handleDeleteRoom(dataset.roomId);
+          break;
+        case 'toggle-group':
+          const groupId = dataset.groupId;
+          if (state.expandedGroups.includes(groupId)) {
+            state.expandedGroups = state.expandedGroups.filter(id => id !== groupId);
+          } else {
+            state.expandedGroups.push(groupId);
+          }
+          render();
+          break;
+        case 'toggle-item':
+          if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(10);
+          const uniqueId = dataset.id;
+          if (project) {
+            const parts = uniqueId.split(':');
+            const itemId = parts.length > 1 ? parts[1] : parts[0];
+            const roomId = parts.length > 1 ? parts[0] : null;
+            const itemState = getItemState(project, itemId, roomId);
+            const item = ITEMS[itemId];
+            const wasChecked = itemState.checked;
+            itemState.checked = !wasChecked;
+            if (itemState.checked && !itemState.qty) {
+              itemState.qty = '1';
+            }
+            // Mutual exclusivity for No Action Needed
+            let groupId = null;
+            for (const [gid, grp] of Object.entries(GROUPS)) {
+              if (grp.ids.includes(itemId)) { groupId = gid; break; }
+            }
+            if (groupId) {
+              const group = GROUPS[groupId];
+              if (item.noAction) {
+                if (itemState.checked) {
+                  group.ids.forEach(id => {
+                    if (!ITEMS[id].noAction) {
+                      const key = roomId ? `${roomId}:${id}` : id;
+                      const otherState = project.items[key];
+                      if (otherState) {
+                        otherState.checked = false;
+                        otherState.qty = '';
+                      }
+                    }
+                  });
+                }
+              } else {
+                if (itemState.checked) {
+                  const nanId = group.ids.find(id => ITEMS[id].noAction);
+                  if (nanId) {
+                    const nanState = getItemState(project, nanId, roomId);
+                    if (nanState && nanState.checked) {
+                      nanState.checked = false;
+                      nanState.qty = '';
+                    }
+                  }
+                }
+              }
+            }
+            scheduleSave();
+            render();
+          }
+          break;
+        case 'prev-section':
+          if (state.currentSection > 0) {
+            state.currentSection--;
+            state.currentRoomId = null;
+            render();
+          }
+          break;
+        case 'next-section':
+          if (state.currentSection < SECTIONS.length - 1) {
+            state.currentSection++;
+            state.currentRoomId = null;
+            render();
+          }
+          break;
+        case 'view-summary':
+          state.showSummary = true;
+          render();
+          break;
+        case 'delete-standard':
+          const delId = dataset.id;
+          const delRoomId = dataset.roomId === 'null' ? null : dataset.roomId;
+          const itemName = ITEMS[delId] ? ITEMS[delId].name : delId;
+          if (confirm(`Remove '${itemName}' from this estimate? This only affects the current project.`)) {
+            const key = delRoomId ? `${delRoomId}:${delId}` : delId;
+            project.hiddenItems = project.hiddenItems || [];
+            if (!project.hiddenItems.includes(key)) project.hiddenItems.push(key);
+            delete project.items[key];
+            scheduleSave();
+          }
+          render();
+          break;
+        case 'export-project':
+          if (typeof exportProject === 'function') {
+            exportProject();
+          } else {
+            console.error('exportProject function not loaded yet.');
+          }
+          break;
+        case 'add-photo':
+          if (typeof openPhotoPicker === 'function') {
+            openPhotoPicker(dataset.id);
+          }
+          break;
+        case 'delete-photo':
+          e.stopPropagation();
+          const photoId = parseInt(dataset.photoId);
+          const itemId = dataset.itemId;
+          const roomId = dataset.roomId === 'null' ? null : dataset.roomId;
+          if (confirm('Are you sure you want to delete this photo?')) {
+            if (typeof deletePhoto === 'function') {
+              deletePhoto(project.id, itemId, roomId, photoId).then(() => render());
+            }
+          }
+          break;
+      }
+    });
+
+    document.getElementById('app').addEventListener('input', e => {
+      if (e.target.dataset.action === 'update-qty') {
+        const id = e.target.dataset.id;
+        const val = e.target.value;
+        const project = getCurrentProject();
+        if (project) {
+          const parts = id.split(':');
+          const itemId = parts.length > 1 ? parts[1] : parts[0];
+          const roomId = parts.length > 1 ? parts[0] : null;
+          const itemState = getItemState(project, itemId, roomId);
+          itemState.qty = val;
+          scheduleSave();
+          
+          const itemCard = e.target.closest('.item-card');
+          const totalEl = itemCard.querySelector('.item-line-total');
+          const item = ITEMS[itemId];
+          const newTotal = getItemTotal(item, itemState);
+          if (totalEl) {
+            totalEl.textContent = newTotal > 0 ? formatCurrency(newTotal) : '';
+          }
+
+          const groupCard = e.target.closest('.group-card');
+          if (groupCard) {
+            const groupId = groupCard.dataset.groupId;
+            const group = GROUPS[groupId];
+            const newGroupTotal = getGroupTotal(group, project, roomId);
+            const groupTotalEl = groupCard.querySelector('.group-total-label');
+            if (groupTotalEl) {
+              if (newGroupTotal > 0) {
+                groupTotalEl.textContent = formatCurrency(newGroupTotal);
+                groupTotalEl.classList.remove('zero');
+              } else {
+                groupTotalEl.textContent = '—';
+                groupTotalEl.classList.add('zero');
+              }
+            }
+          }
+          
+          const newHeaderTotal = getRunningTotal(project);
+          document.getElementById('header-total').textContent = formatCurrency(newHeaderTotal);
+          
+          const progress = getGlobalProgress(project);
+          const progressPct = progress.total > 0 ? (progress.checked / progress.total) * 100 : 0;
+          document.getElementById('header-progress-fill').style.width = `${progressPct}%`;
+          document.getElementById('header-progress-text').textContent = `${progress.checked}/${progress.total} groups reviewed`;
+        }
+      } else if (e.target.dataset.action === 'update-year') {
+        const id = e.target.dataset.id;
+        const val = e.target.value;
+        const project = getCurrentProject();
+        if (project) {
+          const parts = id.split(':');
+          const itemId = parts.length > 1 ? parts[1] : parts[0];
+          const roomId = parts.length > 1 ? parts[0] : null;
+          const itemState = getItemState(project, itemId, roomId);
+          itemState.year = val;
+          scheduleSave();
+        }
+      }
+    });
+
+    /* === INITIAL RENDER === */
+    // Trigger render immediately once state is loaded
+    setTimeout(async () => {
+      const p = getCurrentProject();
+      if (p) {
+        if (typeof loadPhotosForProject === 'function') {
+          const appEl = document.getElementById('app');
+          const oldHtml = appEl.innerHTML;
+          appEl.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;color:var(--text-muted);">Loading photos...</div>';
+          await loadPhotosForProject(p.id);
+          appEl.innerHTML = oldHtml;
+        }
+        render();
+        console.log(`✅ Render engine initialised. Rendering ${p.name}`);
+      }
+    }, 50);
+  </script>
+
+  <!-- =====================================================
+       EXPORT SYSTEM (Excel & ZIP)
+  ====================================================== -->
+  <script>
+    /* === EXPORT === */
+    async function exportProject(projectId) {
+      const projId = projectId || state.currentProjectId;
+      const project = state.projects.find(p => p.id === projId) || getCurrentProject();
+      
+      if (!project) {
+        alert("No project to export.");
+        return;
+      }
+
+      try {
+        const wb = XLSX.utils.book_new();
+        
+        // Helper to format currency values for Excel cells
+        const CURRENCY_FMT = '"$"#,##0';
+        
+        // Font helper to apply consistent Arial fonts
+        function makeCell(val, isHeader = false, isBold = false, alignRight = false, numFormat = null, fontSize = 10) {
+          const cell = { v: val };
+          cell.s = {
+            font: { name: 'Arial', sz: fontSize, bold: isHeader || isBold },
+            alignment: {
+              horizontal: alignRight ? 'right' : 'left',
+              vertical: 'center'
+            }
+          };
+          if (isHeader) {
+            cell.s.fill = { fgColor: { rgb: "F1F5F9" } }; // Light gray header
+            cell.s.border = {
+              bottom: { style: 'thin', color: { rgb: "CBD5E1" } }
+            };
+          }
+          if (numFormat) {
+            cell.z = numFormat;
+            cell.t = 'n'; // Number cell type
+          }
+          return cell;
+        }
+
+        // ----------------------------------------------------
+        // 1. SUMMARY SHEET
+        // ----------------------------------------------------
+        const summaryData = [
+          [makeCell("Spark Homes Repair Estimate", false, true, false, null, 14)],
+          [],
+          [makeCell("Project Name:", false, true), makeCell(project.name)],
+          [makeCell("Export Date:", false, true), makeCell(new Date().toLocaleDateString())],
+          [],
+          [makeCell("ESTIMATE SUMMARY BY SECTION", false, true, false, null, 11)],
+          [
+            makeCell("Section", true, true),
+            makeCell("", true),
+            makeCell("", true),
+            makeCell("", true),
+            makeCell("Total", true, true, true)
+          ]
+        ];
+        
+        let grandTotal = 0;
+        const summaryMerges = [
+          { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }, // Title
+          { s: { r: 5, c: 0 }, e: { r: 5, c: 4 } }, // Summary section title
+          { s: { r: 6, c: 0 }, e: { r: 6, c: 3 } }  // Header merged
+        ];
+        
+        SECTIONS.forEach((sec) => {
+          const total = getSectionTotal(sec.id, project);
+          grandTotal += total;
+          
+          const rowIdx = summaryData.length;
+          summaryData.push([
+            makeCell(sec.label),
+            makeCell(""),
+            makeCell(""),
+            makeCell(""),
+            makeCell(total, false, false, true, CURRENCY_FMT)
+          ]);
+          summaryMerges.push({ s: { r: rowIdx, c: 0 }, e: { r: rowIdx, c: 3 } });
+        });
+        
+        // Grand Total row
+        const gtIdx = summaryData.length;
+        summaryData.push([
+          makeCell("Grand Total", false, true),
+          makeCell(""),
+          makeCell(""),
+          makeCell(""),
+          makeCell(grandTotal, false, true, true, CURRENCY_FMT, 11)
+        ]);
+        summaryMerges.push({ s: { r: gtIdx, c: 0 }, e: { r: gtIdx, c: 3 } });
+        
+        const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+        wsSummary['!merges'] = summaryMerges;
+        wsSummary['!cols'] = [{ wch: 30 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 15 }];
+        XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+        
+        // ----------------------------------------------------
+        // HELPER TO GENERATE DETAILED SECTION SHEET
+        // ----------------------------------------------------
+        function addDetailedSheet(sheetName, sectionId, roomsFilter = null) {
+          const allItems = getProjectItems(project);
+          const sheetData = [];
+          const merges = [];
+          
+          // Header Row
+          sheetData.push([
+            makeCell("Item", true, true),
+            makeCell("Unit", true, true),
+            makeCell("Unit Cost", true, true, true),
+            makeCell("Qty", true, true, true),
+            makeCell("Total", true, true, true)
+          ]);
+          
+          let sheetTotal = 0;
+          let hasAnyData = false;
+          
+          if (roomsFilter) {
+            // Room-based section (Interior / General)
+            // 1. Global Checked items
+            const intGroups = Object.entries(GROUPS).filter(([_, g]) => g.section === sectionId);
+            const globalChecked = [];
+            
+            intGroups.forEach(([groupId, group]) => {
+              group.ids.forEach(itemId => {
+                const item = ITEMS[itemId];
+                const itemState = getItemState(project, itemId, null);
+                if (itemState.checked) {
+                  globalChecked.push({ item, itemState });
+                }
+              });
+            });
+            
+            const globalStandalone = Object.values(allItems).filter(item => {
+              if (item.custom) {
+                return item.sectionId === sectionId && !item.roomId;
+              }
+              return item.id.startsWith('ig-') && !item.noAction && !isItemInAnyGroup(item.id);
+            });
+            
+            globalStandalone.forEach(item => {
+              const itemState = getItemState(project, item.id, null);
+              if (itemState.checked) {
+                globalChecked.push({ item, itemState });
+              }
+            });
+            
+            if (globalChecked.length > 0) {
+              hasAnyData = true;
+              const rIdx = sheetData.length;
+              sheetData.push([makeCell("Global Interior / General", false, true), makeCell(""), makeCell(""), makeCell(""), makeCell("")]);
+              merges.push({ s: { r: rIdx, c: 0 }, e: { r: rIdx, c: 4 } });
+              
+              globalChecked.forEach(({ item, itemState }) => {
+                const total = getItemTotal(item, itemState);
+                const cost = getItemCost(item, itemState);
+                const qty = parseFloat(itemState.qty) || 0;
+                sheetTotal += total;
+                sheetData.push([
+                  makeCell(item.name),
+                  makeCell(item.unit),
+                  makeCell(cost, false, false, true, CURRENCY_FMT),
+                  makeCell(qty, false, false, true, "0.00"),
+                  makeCell(total, false, false, true, CURRENCY_FMT)
+                ]);
+              });
+            }
+            
+            // 2. Room instances (Bedrooms & Living Areas)
+            const rooms = project.rooms.filter(roomsFilter);
+            rooms.forEach(room => {
+              const roomChecked = [];
+              
+              intGroups.forEach(([groupId, group]) => {
+                group.ids.forEach(itemId => {
+                  const item = ITEMS[itemId];
+                  const itemState = getItemState(project, itemId, room.id);
+                  if (itemState.checked) {
+                    roomChecked.push({ item, itemState });
+                  }
+                });
+              });
+              
+              const roomStandalone = Object.values(allItems).filter(item => {
+                if (item.custom) {
+                  return item.sectionId === sectionId && item.roomId === room.id;
+                }
+                return item.id.startsWith('ig-') && !item.noAction && !isItemInAnyGroup(item.id);
+              });
+              
+              roomStandalone.forEach(item => {
+                const itemState = getItemState(project, item.id, room.id);
+                if (itemState.checked) {
+                  roomChecked.push({ item, itemState });
+                }
+              });
+              
+              if (roomChecked.length > 0) {
+                hasAnyData = true;
+                const rIdx = sheetData.length;
+                sheetData.push([makeCell(`${room.name}`, false, true), makeCell(""), makeCell(""), makeCell(""), makeCell("")]);
+                merges.push({ s: { r: rIdx, c: 0 }, e: { r: rIdx, c: 4 } });
+                
+                roomChecked.forEach(({ item, itemState }) => {
+                  const total = getItemTotal(item, itemState);
+                  const cost = getItemCost(item, itemState);
+                  const qty = parseFloat(itemState.qty) || 0;
+                  sheetTotal += total;
+                  sheetData.push([
+                    makeCell(item.name),
+                    makeCell(item.unit),
+                    makeCell(cost, false, false, true, CURRENCY_FMT),
+                    makeCell(qty, false, false, true, "0.00"),
+                    makeCell(total, false, false, true, CURRENCY_FMT)
+                  ]);
+                });
+              }
+            });
+            
+          } else {
+            // Normal section (Kitchen, Systems, Exterior)
+            const prefix = { kitchen: 'kt-', systems: 'as-', exterior: 'ex-' }[sectionId];
+            const checked = [];
+            
+            const secGroups = Object.entries(GROUPS).filter(([_, g]) => g.section === sectionId);
+            secGroups.forEach(([groupId, group]) => {
+              group.ids.forEach(itemId => {
+                const item = ITEMS[itemId];
+                const itemState = getItemState(project, itemId, null);
+                if (itemState.checked) {
+                  checked.push({ item, itemState });
+                }
+              });
+            });
+            
+            const secStandalone = Object.values(allItems).filter(item => {
+              if (item.custom) {
+                return item.sectionId === sectionId;
+              }
+              return item.id.startsWith(prefix) && !item.noAction && !isItemInAnyGroup(item.id);
+            });
+            
+            secStandalone.forEach(item => {
+              const itemState = getItemState(project, item.id, null);
+              if (itemState.checked) {
+                checked.push({ item, itemState });
+              }
+            });
+            
+            if (checked.length > 0) {
+              hasAnyData = true;
+              checked.forEach(({ item, itemState }) => {
+                const total = getItemTotal(item, itemState);
+                const cost = getItemCost(item, itemState);
+                const qty = parseFloat(itemState.qty) || 0;
+                sheetTotal += total;
+                sheetData.push([
+                  makeCell(item.name),
+                  makeCell(item.unit),
+                  makeCell(cost, false, false, true, CURRENCY_FMT),
+                  makeCell(qty, false, false, true, "0.00"),
+                  makeCell(total, false, false, true, CURRENCY_FMT)
+                ]);
+              });
+            }
+          }
+          
+          if (!hasAnyData) {
+            const rIdx = sheetData.length;
+            sheetData.push([makeCell("No repairs items selected for this section.", false, false), makeCell(""), makeCell(""), makeCell(""), makeCell("")]);
+            merges.push({ s: { r: rIdx, c: 0 }, e: { r: rIdx, c: 4 } });
+          }
+          
+          // Section Total Row
+          const tIdx = sheetData.length;
+          sheetData.push([
+            makeCell("Section Total", false, true),
+            makeCell(""),
+            makeCell(""),
+            makeCell(""),
+            makeCell(sheetTotal, false, true, true, CURRENCY_FMT)
+          ]);
+          merges.push({ s: { r: tIdx, c: 0 }, e: { r: tIdx, c: 3 } });
+          
+          const ws = XLSX.utils.aoa_to_sheet(sheetData);
+          ws['!merges'] = merges;
+          ws['!cols'] = [{ wch: 35 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 15 }];
+          XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        }
+        
+        // 2. DETAILED SHEET: Interior / General
+        addDetailedSheet("Interior & General", "interior", r => r.type === 'bedroom' || r.type === 'living');
+        
+        // 3. DETAILED SHEET: Kitchen
+        addDetailedSheet("Kitchen", "kitchen");
+        
+        // 4. DETAILED SHEETS: Bathrooms (separate sheet per bathroom)
+        const bathrooms = project.rooms.filter(r => r.type === 'bathroom');
+        bathrooms.forEach(room => {
+          const allItems = getProjectItems(project);
+          const sheetData = [];
+          const merges = [];
+          
+          sheetData.push([
+            makeCell("Item", true, true),
+            makeCell("Unit", true, true),
+            makeCell("Unit Cost", true, true, true),
+            makeCell("Qty", true, true, true),
+            makeCell("Total", true, true, true)
+          ]);
+          
+          let bathTotal = 0;
+          let hasAnyData = false;
+          
+          const bathGroups = Object.entries(GROUPS).filter(([_, g]) => g.section === 'bathroom');
+          const checked = [];
+          
+          bathGroups.forEach(([groupId, group]) => {
+            group.ids.forEach(itemId => {
+              const item = ITEMS[itemId];
+              const itemState = getItemState(project, itemId, room.id);
+              if (itemState.checked) {
+                checked.push({ item, itemState });
+              }
+            });
+          });
+          
+          const bathStandalone = Object.values(allItems).filter(item => {
+            if (item.custom) {
+              return item.sectionId === 'bathroom' && item.roomId === room.id;
+            }
+            return item.id.startsWith('ba-') && !item.noAction && !isItemInAnyGroup(item.id);
+          });
+          
+          bathStandalone.forEach(item => {
+            const itemState = getItemState(project, item.id, room.id);
+            if (itemState.checked) {
+              checked.push({ item, itemState });
+            }
+          });
+          
+          if (checked.length > 0) {
+            hasAnyData = true;
+            checked.forEach(({ item, itemState }) => {
+              const total = getItemTotal(item, itemState);
+              const cost = getItemCost(item, itemState);
+              const qty = parseFloat(itemState.qty) || 0;
+              bathTotal += total;
+              sheetData.push([
+                makeCell(item.name),
+                makeCell(item.unit),
+                makeCell(cost, false, false, true, CURRENCY_FMT),
+                makeCell(qty, false, false, true, "0.00"),
+                makeCell(total, false, false, true, CURRENCY_FMT)
+              ]);
+            });
+          }
+          
+          if (!hasAnyData) {
+            const rIdx = sheetData.length;
+            sheetData.push([makeCell("No repairs items selected for this bathroom.", false, false), makeCell(""), makeCell(""), makeCell(""), makeCell("")]);
+            merges.push({ s: { r: rIdx, c: 0 }, e: { r: rIdx, c: 4 } });
+          }
+          
+          // Bathroom Total Row
+          const tIdx = sheetData.length;
+          sheetData.push([
+            makeCell("Bathroom Total", false, true),
+            makeCell(""),
+            makeCell(""),
+            makeCell(""),
+            makeCell(bathTotal, false, true, true, CURRENCY_FMT)
+          ]);
+          merges.push({ s: { r: tIdx, c: 0 }, e: { r: tIdx, c: 3 } });
+          
+          const ws = XLSX.utils.aoa_to_sheet(sheetData);
+          ws['!merges'] = merges;
+          ws['!cols'] = [{ wch: 35 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 15 }];
+          XLSX.utils.book_append_sheet(wb, ws, room.name);
+        });
+        
+        // 5. DETAILED SHEET: Systems & Structure
+        addDetailedSheet("Systems & Structure", "systems");
+        
+        // 6. DETAILED SHEET: Exterior
+        addDetailedSheet("Exterior", "exterior");
+        
+        // Write XLSX binary
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+        function s2ab(s) {
+          const buf = new ArrayBuffer(s.length);
+          const view = new Uint8Array(buf);
+          for (let i = 0; i < s.length; i++) view[i] = s.charCodeAt(i) & 0xFF;
+          return buf;
+        }
+        
+        function dataURLtoBlob(dataurl) {
+          try {
+            const arr = dataurl.split(',');
+            const mime = arr[0].match(/:(.*?);/)[1];
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while(n--) {
+              u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new Blob([u8arr], { type: mime });
+          } catch(e) {
+            console.error("Error converting data URL to blob:", e);
+            return null;
+          }
+        }
+        
+        // ----------------------------------------------------
+        // ZIP GENERATION (WITH PHOTOS)
+        // ----------------------------------------------------
+        let photos = [];
+        if (typeof getAllPhotosForProject === 'function') {
+          try {
+            photos = await getAllPhotosForProject(project.id);
+          } catch (e) {
+            console.error("Failed to load photos:", e);
+          }
+        }
+
+        const zip = new JSZip();
+        
+        // Add Excel spreadsheet
+        zip.file("Estimate.xlsx", s2ab(wbout), { binary: true });
+        
+        // Add photos folder
+        const photoFolder = zip.folder("photos");
+        const nameCounts = {};
+        
+        photos.forEach((photo) => {
+          const item = ITEMS[photo.itemId];
+          const itemName = item ? item.name.replace(/[^a-z0-9]/gi, '_') : photo.itemId;
+          const roomName = photo.roomId 
+            ? (project.rooms.find(r => r.id === photo.roomId)?.name || 'room').replace(/[^a-z0-9]/gi, '_') 
+            : 'global';
+          
+          const fileBase = `${roomName}_${photo.roomId || 'global'}_${itemName}`;
+          nameCounts[fileBase] = (nameCounts[fileBase] || 0) + 1;
+          const filename = `${fileBase}_${nameCounts[fileBase]}.jpg`;
+          
+          const blob = dataURLtoBlob(photo.dataUrl);
+          if (blob) {
+            photoFolder.file(filename, blob);
+          }
+        });
+        
+        // Generate Zip download
+        const content = await zip.generateAsync({ type: "blob" });
+        const link = document.createElement("a");
+        const safeName = project.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        link.href = URL.createObjectURL(content);
+        link.download = `SparkEstimate_${safeName}.zip`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+        console.log(`✅ Project "${project.name}" exported successfully with photos!`);
+
+
+      } catch (err) {
+        console.error("Export failed:", err);
+        alert(`Failed to export project: ${err.message}`);
+      }
+    }
+
+    // Expose to debugging object
+    if (window.__debug) {
+      window.__debug.exportProject = exportProject;
+    }
+  </script>
+
+  <!-- =====================================================
+       PHOTO CAPTURE & INDEXEDDB SYSTEM
+  ====================================================== -->
+  <script>
+    /* === PHOTO CAPTURE & INDEXEDDB === */
+    const DB_NAME = 'SparkEstimatorDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'photos';
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = function(e) {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+            store.createIndex('projectId', 'projectId', { unique: false });
+            store.createIndex('project_item', ['projectId', 'itemId', 'roomId'], { unique: false });
+          }
+        };
+        request.onsuccess = function(e) {
+          resolve(e.target.result);
+        };
+        request.onerror = function(e) {
+          reject(e.target.error);
+        };
+      });
+    }
+
+    function getAllPhotosForProject(projectId) {
+      return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_NAME, 'readonly');
+          const store = tx.objectStore(STORE_NAME);
+          const index = store.index('projectId');
+          const request = index.getAll(projectId);
+          
+          request.onsuccess = function() {
+            resolve(request.result || []);
+          };
+          request.onerror = function(e) {
+            reject(e.target.error);
+          };
+        });
+      });
+    }
+
+    function loadPhotosForProject(projectId) {
+      if (!state.photoCache) state.photoCache = {};
+      state.photoCache[projectId] = {};
+      
+      return getAllPhotosForProject(projectId).then(photos => {
+        photos.forEach(photo => {
+          const key = photo.roomId ? `${photo.roomId}:${photo.itemId}` : photo.itemId;
+          if (!state.photoCache[projectId][key]) {
+            state.photoCache[projectId][key] = [];
+          }
+          state.photoCache[projectId][key].push(photo);
+        });
+        console.log(`Loaded ${photos.length} photos from IndexedDB into cache for project ${projectId}`);
+      }).catch(err => {
+        console.error("Failed to load photos into cache:", err);
+      });
+    }
+
+    function compressImage(file, maxWidth = 1024, quality = 0.7) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = new Image();
+          img.onload = function() {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            
+            if (width > height) {
+              if (width > maxWidth) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
+              }
+            } else {
+              if (height > maxWidth) {
+                width = Math.round((width * maxWidth) / height);
+                height = maxWidth;
+              }
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            try {
+              const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+              resolve(compressedDataUrl);
+            } catch(err) {
+              reject(err);
+            }
+          };
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function savePhoto(projectId, itemId, roomId, dataUrl) {
+      const photo = {
+        projectId,
+        itemId,
+        roomId: roomId || null,
+        dataUrl,
+        timestamp: Date.now()
+      };
+      
+      return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const store = tx.objectStore(STORE_NAME);
+          const request = store.add(photo);
+          
+          request.onsuccess = function(e) {
+            photo.id = e.target.result;
+            
+            const key = roomId ? `${roomId}:${itemId}` : itemId;
+            if (!state.photoCache[projectId]) state.photoCache[projectId] = {};
+            if (!state.photoCache[projectId][key]) state.photoCache[projectId][key] = [];
+            state.photoCache[projectId][key].push(photo);
+            
+            resolve(photo);
+          };
+          
+          request.onerror = function(e) {
+            reject(e.target.error);
+          };
+        });
+      });
+    }
+
+    function deletePhoto(projectId, itemId, roomId, photoId) {
+      return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const store = tx.objectStore(STORE_NAME);
+          const request = store.delete(photoId);
+          
+          request.onsuccess = function() {
+            const key = roomId ? `${roomId}:${itemId}` : itemId;
+            if (state.photoCache[projectId] && state.photoCache[projectId][key]) {
+              state.photoCache[projectId][key] = state.photoCache[projectId][key].filter(p => p.id !== photoId);
+            }
+            resolve();
+          };
+          
+          request.onerror = function(e) {
+            reject(e.target.error);
+          };
+        });
+      });
+    }
+
+    function openPhotoPicker(uniqueId) {
+      const parts = uniqueId.split(':');
+      const itemId = parts.length > 1 ? parts[1] : parts[0];
+      const roomId = parts.length > 1 ? parts[0] : null;
+      const projectId = state.currentProjectId;
+
+      if (!projectId) {
+        alert("No active project selected.");
+        return;
+      }
+
+      // Create hidden file input
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.capture = 'environment';
+      input.style.display = 'none';
+
+      input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Show a simple loading toast
+        const toast = document.createElement('div');
+        toast.textContent = "Compressing photo...";
+        toast.style.position = 'fixed';
+        toast.style.bottom = '80px';
+        toast.style.left = '50%';
+        toast.style.transform = 'translateX(-50%)';
+        toast.style.background = 'rgba(0,0,0,0.8)';
+        toast.style.color = '#fff';
+        toast.style.padding = '10px 20px';
+        toast.style.borderRadius = '20px';
+        toast.style.zIndex = '9999';
+        toast.style.fontSize = '0.9rem';
+        toast.style.fontWeight = '600';
+        document.body.appendChild(toast);
+
+        compressImage(file)
+          .then(dataUrl => {
+            return savePhoto(projectId, itemId, roomId, dataUrl);
+          })
+          .then(() => {
+            toast.textContent = "Photo saved!";
+            setTimeout(() => toast.remove(), 1000);
+            render();
+          })
+          .catch(err => {
+            console.error("Photo capture failed:", err);
+            alert(`Failed to save photo: ${err.message}`);
+            toast.remove();
+          });
+      };
+
+      document.body.appendChild(input);
+      input.click();
+      setTimeout(() => input.remove(), 1000); // Clean up DOM
+    }
+
+    // Expose helpers to debugging object
+    window.__photo = {
+      openDB,
+      getAllPhotosForProject,
+      loadPhotosForProject,
+      compressImage,
+      savePhoto,
+      deletePhoto,
+      openPhotoPicker
+    };
+
+    if (window.__debug) {
+      Object.assign(window.__debug, window.__photo);
+    }
+  </script>
+
+  <!-- =====================================================
+       SETTINGS & PRICE OVERRIDES
+  ====================================================== -->
+  <script>
+    /* === SETTINGS & PRICE OVERRIDES === */
+    
+    // Toast Notification System
+    function showToast(msg) {
+      // Remove any existing toast first
+      const existing = document.querySelector('.toast');
+      if (existing) existing.remove();
+      
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      
+      // Auto remove after 2.5 seconds (in sync with CSS animation)
+      setTimeout(() => {
+        if (toast.parentNode) toast.remove();
+      }, 2500);
+    }
+    
+    // CSV Manual Parsing Logic with proper quote support and column detection
+    function splitCSVLine(line) {
+      const result = [];
+      let cell = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            cell += '"';
+            i++; // skip next quote
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (c === ',' && !inQuotes) {
+          result.push(cell.trim());
+          cell = '';
+        } else {
+          cell += c;
+        }
+      }
+      result.push(cell.trim());
+      return result;
+    }
+
+    function parseCSV(text) {
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      if (lines.length === 0) return [];
+
+      // Parse the first line to check for headers
+      const firstLineFields = splitCSVLine(lines[0]);
+      let idIndex = 0;
+      let costIndex = 1;
+      let hasHeader = false;
+
+      // Check if the first line is indeed a header
+      const isHeaderField = (f) => {
+        const lf = f.toLowerCase();
+        return lf === 'id' || lf === 'cost' || lf === 'price' || lf === 'name' || lf === 'unit';
+      };
+
+      if (firstLineFields.some(isHeaderField)) {
+        hasHeader = true;
+        // Find indices of 'id' and 'cost' or 'price'
+        const idCol = firstLineFields.findIndex(f => f.toLowerCase() === 'id');
+        const costCol = firstLineFields.findIndex(f => f.toLowerCase() === 'cost' || f.toLowerCase() === 'price');
+        
+        if (idCol !== -1) idIndex = idCol;
+        if (costCol !== -1) costIndex = costCol;
+      }
+
+      const overrides = [];
+      const startIdx = hasHeader ? 1 : 0;
+
+      for (let i = startIdx; i < lines.length; i++) {
+        const fields = splitCSVLine(lines[i]);
+        if (fields.length > Math.max(idIndex, costIndex)) {
+          const id = fields[idIndex].replace(/^["']|["']$/g, '');
+          const costVal = fields[costIndex].replace(/^["']|["']$/g, '');
+          // Strip dollar signs, commas, or spaces from cost
+          const cost = parseFloat(costVal.replace(/[^0-9.-]/g, ''));
+          
+          if (id && !isNaN(cost)) {
+            overrides.push({ id, cost });
+          }
+        }
+      }
+      return overrides;
+    }
+    
+    // Update reset button visibility in settings modal and list of overrides
+    function updateResetButtonVisibility() {
+      const resetBtn = document.getElementById('reset-prices-btn');
+      if (resetBtn) {
+        const hasOverrides = Object.keys(state.priceOverrides).length > 0;
+        resetBtn.style.display = hasOverrides ? 'block' : 'none';
+      }
+      
+      const container = document.getElementById('overridden-prices-list');
+      if (container) {
+        const keys = Object.keys(state.priceOverrides);
+        if (keys.length === 0) {
+          container.innerHTML = '<p class="settings-desc" style="font-style: italic; margin-top: 10px;">No global overrides active.</p>';
+          return;
+        }
+        
+        let html = '<h4 style="font-size: 0.85rem; margin-top: 14px; margin-bottom: 8px;">Active Global Overrides:</h4>';
+        html += '<ul style="list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; padding: 0; max-height: 120px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 8px; background: var(--bg-primary);">';
+        
+        keys.forEach(id => {
+          const itemDef = getItemDefinition(id);
+          const name = itemDef ? itemDef.name : id;
+          const cost = state.priceOverrides[id];
+          html += `
+            <li style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border); padding-bottom: 4px; margin-bottom: 4px;">
+              <span style="max-width: 70%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${name}">${name}</span>
+              <span style="font-weight: 600; color: var(--accent);">${formatCurrency(cost)}</span>
+            </li>
+          `;
+        });
+        
+        html += '</ul>';
+        container.innerHTML = html;
+      }
+    }
+    
+    // Inline Price Override Action
+    function handleOverridePrice(uniqueId) {
+      const project = getCurrentProject();
+      if (!project) return;
+      
+      const parts = uniqueId.split(':');
+      const itemId = parts.length > 1 ? parts[1] : parts[0];
+      const roomId = parts.length > 1 ? parts[0] : null;
+      
+      const itemDef = getItemDefinition(itemId);
+      if (!itemDef) return;
+      
+      const itemState = getItemState(project, itemId, roomId);
+      const currentCost = getItemCost(itemDef, itemState);
+      
+      const promptText = `Enter new unit cost for "${itemDef.name}" (${itemDef.unit}):`;
+      const response = prompt(promptText, currentCost);
+      if (response === null) return; // Cancelled
+      
+      if (response.trim() === '') {
+        // Reset/Clear override
+        itemState.priceOverride = null;
+        showToast(`Reset price for ${itemDef.name} to default`);
+        scheduleSave();
+        render();
+      } else {
+        const newCost = parseFloat(response.trim());
+        if (!isNaN(newCost) && newCost >= 0) {
+          itemState.priceOverride = newCost;
+          showToast(`Updated price for ${itemDef.name} to ${formatCurrency(newCost)}`);
+          scheduleSave();
+          render();
+        } else {
+          alert("Please enter a valid positive number.");
+          return;
+        }
+      }
+      
+      scheduleSave();
+      render();
+    }
+    
+    // Add Custom Line Item
+    function handleAddCustomItem(sectionId, roomId = null) {
+      const project = getCurrentProject();
+      if (!project) return;
+      
+      const name = prompt("Enter Custom Item Name:");
+      if (!name || !name.trim()) return;
+      
+      const costStr = prompt("Enter Unit Cost:", "0");
+      if (costStr === null) return;
+      const cost = parseFloat(costStr.trim());
+      if (isNaN(cost) || cost < 0) {
+        alert("Please enter a valid positive cost.");
+        return;
+      }
+      
+      const unit = prompt("Enter Unit Type (e.g. sqft, ea., LF, flat):", "flat");
+      if (unit === null) return;
+      
+      const cleanRoomId = roomId === 'null' ? null : roomId;
+      
+      const newItem = {
+        id: 'custom_' + Date.now(),
+        name: name.trim(),
+        cost: cost,
+        unit: unit.trim() || 'flat',
+        custom: true,
+        sectionId: sectionId,
+        roomId: cleanRoomId
+      };
+      
+      if (!project.customItems) project.customItems = [];
+      project.customItems.push(newItem);
+      
+      // Initialize its state (checked by default with Qty=1)
+      const key = cleanRoomId ? `${cleanRoomId}:${newItem.id}` : newItem.id;
+      project.items[key] = {
+        checked: true,
+        qty: '1',
+        year: '',
+        notes: '',
+        priceOverride: null
+      };
+      
+      showToast(`Added custom item: ${newItem.name}`);
+      scheduleSave();
+      render();
+    }
+    
+    // Delete Custom Line Item
+    // Note: custom delete button triggers handleDeleteCustomItem with (itemId, roomId)
+    function handleDeleteCustomItem(customItemId, roomId = null) {
+      const project = getCurrentProject();
+      if (!project) return;
+      
+      const itemDef = getItemDefinition(customItemId);
+      const itemName = itemDef ? itemDef.name : "Custom Item";
+      
+      if (confirm(`Are you sure you want to delete the custom item "${itemName}"?`)) {
+        project.customItems = project.customItems.filter(item => item.id !== customItemId);
+        
+        // Remove item state
+        const key = roomId ? `${roomId}:${customItemId}` : customItemId;
+        delete project.items[key];
+        
+        showToast(`Deleted custom item: ${itemName}`);
+        scheduleSave();
+        render();
+      }
+    }
+    
+    // Wire up settings modal events after DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+      let selectedFile = null;
+      
+      const selectBtn = document.getElementById('select-csv-btn');
+      const fileInput = document.getElementById('csv-file-input');
+      const fileNameLabel = document.getElementById('selected-file-name');
+      const uploadBtn = document.getElementById('upload-csv-btn');
+      const resetBtn = document.getElementById('reset-prices-btn');
+      
+      if (selectBtn && fileInput) {
+        selectBtn.addEventListener('click', () => fileInput.click());
+      }
+      
+      if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+          selectedFile = e.target.files[0];
+          if (selectedFile) {
+            fileNameLabel.textContent = selectedFile.name;
+            uploadBtn.disabled = false;
+          } else {
+            fileNameLabel.textContent = "No file selected";
+            uploadBtn.disabled = true;
+          }
+        });
+      }
+      
+      if (uploadBtn) {
+        uploadBtn.addEventListener('click', () => {
+          if (!selectedFile) return;
+          
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            const text = e.target.result;
+            try {
+              const overrides = parseCSV(text);
+              if (overrides.length === 0) {
+                alert("No valid rows found in CSV. Expected columns: id, cost.");
+                return;
+              }
+              
+              overrides.forEach(ov => {
+                state.priceOverrides[ov.id] = ov.cost;
+              });
+              
+              savePriceOverrides();
+              showToast(`Updated ${overrides.length} prices globally.`);
+              updateResetButtonVisibility();
+              
+              // Close modal
+              document.getElementById('settings-modal').classList.remove('open');
+              
+              // Clear selected file
+              selectedFile = null;
+              fileInput.value = '';
+              fileNameLabel.textContent = "No file selected";
+              uploadBtn.disabled = true;
+              
+              render();
+            } catch(err) {
+              alert(`Failed to parse CSV: ${err.message}`);
+            }
+          };
+          reader.readAsText(selectedFile);
+        });
+      }
+      
+      if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+          if (confirm("Are you sure you want to reset all global price overrides to default? This will also clear all project-specific overrides.")) {
+            state.priceOverrides = {};
+            state.projects.forEach(p => {
+              Object.values(p.items).forEach(itemState => {
+                itemState.priceOverride = null;
+              });
+            });
+            savePriceOverrides();
+            scheduleSave();
+            updateResetButtonVisibility();
+            document.getElementById('settings-modal').classList.remove('open');
+            showToast("Reset all prices to defaults.");
+            render();
+          }
+        });
+      }
+    });
+
+    // Expose helpers globally
+    window.__settings = {
+      showToast,
+      parseCSV,
+      updateResetButtonVisibility,
+      handleOverridePrice,
+      handleAddCustomItem,
+      handleDeleteCustomItem
+    };
+    if (window.__debug) {
+      Object.assign(window.__debug, window.__settings);
+    }
+  </script>
+
+  <!-- =====================================================
+       DEAL ANALYZER LOGIC
+  ====================================================== -->
+  <script>
+    /* === DEAL ANALYZER === */
+    document.addEventListener('DOMContentLoaded', () => {
+      const fab = document.getElementById('deal-analyzer-fab');
+      const modal = document.getElementById('deal-analyzer-modal');
+      const closeBtn = document.getElementById('close-deal-btn');
+      
+      window.addEventListener('deal-needs-refresh', () => {
+        if (modal && modal.classList.contains('open') && typeof recalculateDeal === 'function') {
+          recalculateDeal();
+        }
+      });
+      
+      const arvInput = document.getElementById('deal-arv');
+      const purchaseInput = document.getElementById('deal-purchase');
+      const holdingInput = document.getElementById('deal-holding');
+      const repairsInput = document.getElementById('deal-repair-total');
+      
+      const profitOutput = document.getElementById('deal-output-profit');
+      const roiOutput = document.getElementById('deal-output-roi');
+      const maoOutput = document.getElementById('deal-output-mao');
+      const ratingBadge = document.getElementById('deal-rating');
+      
+      let holdingCostsEdited = false;
+      
+      // Auto-recalculate when inputs change
+      arvInput.addEventListener('input', () => {
+        const arv = parseFloat(arvInput.value) || 0;
+        if (!holdingCostsEdited) {
+          holdingInput.value = arv > 0 ? Math.round(arv * 0.1) : '';
+        }
+        recalculateDeal();
+      });
+      
+      purchaseInput.addEventListener('input', recalculateDeal);
+      
+      holdingInput.addEventListener('input', () => {
+        holdingCostsEdited = true;
+        if (holdingInput.value.trim() === '') {
+          holdingCostsEdited = false; // Reset if cleared
+        }
+        recalculateDeal();
+      });
+      
+      // Open / Close actions
+      if (fab && modal) {
+        fab.addEventListener('click', () => {
+          // Sync current repair total
+          const project = getCurrentProject();
+          if (project) {
+            const repairTotal = getRunningTotal(project);
+            repairsInput.value = formatCurrency(repairTotal);
+          } else {
+            repairsInput.value = '$0';
+          }
+          
+          modal.classList.add('open');
+          recalculateDeal();
+        });
+      }
+      
+      if (closeBtn && modal) {
+        closeBtn.addEventListener('click', () => {
+          modal.classList.remove('open');
+        });
+      }
+      
+      if (modal) {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.classList.remove('open');
+          }
+        });
+      }
+      
+      // Swipe-down to close on touch devices
+      const modalContent = modal ? modal.querySelector('.modal-content') : null;
+      if (modalContent) {
+        let startY = 0;
+        let isDragging = false;
+        
+        modalContent.addEventListener('touchstart', (e) => {
+          // Check if dragging from the drag handle or near the top
+          if (e.target.closest('.drag-handle') || e.target.closest('.modal-header')) {
+            startY = e.touches[0].clientY;
+            isDragging = true;
+            modalContent.style.transition = 'none';
+          }
+        }, { passive: true });
+        
+        modalContent.addEventListener('touchmove', (e) => {
+          if (!isDragging) return;
+          const currentY = e.touches[0].clientY;
+          const deltaY = currentY - startY;
+          if (deltaY > 0) {
+            modalContent.style.transform = `translateY(${deltaY}px)`;
+          }
+        }, { passive: true });
+        
+        modalContent.addEventListener('touchend', (e) => {
+          if (!isDragging) return;
+          isDragging = false;
+          modalContent.style.transition = 'transform 0.25s ease';
+          
+          const endY = e.changedTouches[0].clientY;
+          const deltaY = endY - startY;
+          
+          if (deltaY > 100) {
+            modal.classList.remove('open');
+            modalContent.style.transform = '';
+          } else {
+            modalContent.style.transform = '';
+          }
+        });
+      }
+      
+      function recalculateDeal() {
+        window.recalculateDeal = recalculateDeal;
+        const project = getCurrentProject();
+        const repairs = project ? getRunningTotal(project) : 0;
+        
+        const parseMoney = val => parseFloat(String(val).replace(/[^0-9.-]+/g, '')) || 0;
+        const arv = parseMoney(arvInput.value);
+        const purchase = parseMoney(purchaseInput.value);
+        const holding = parseMoney(holdingInput.value);
+        
+        // Sync repair display
+        repairsInput.value = formatCurrency(repairs);
+        
+        // Check for basic data presence
+        if (arv === 0 && purchase === 0) {
+          profitOutput.textContent = '—';
+          roiOutput.textContent = '—';
+          maoOutput.textContent = '—';
+          ratingBadge.className = 'deal-rating-badge avoid';
+          ratingBadge.textContent = 'Avoid (No Data)';
+          return;
+        }
+        
+        const profit = arv - purchase - repairs - holding;
+        const roiDenom = purchase + repairs;
+        const roi = roiDenom > 0 ? (profit / roiDenom) * 100 : 0;
+        const mao = (arv * 0.70) - repairs;
+        
+        // Render Output text
+        profitOutput.textContent = formatCurrency(profit);
+        if (profit >= 0) {
+          profitOutput.className = 'analyzer-output-val profit-positive';
+        } else {
+          profitOutput.className = 'analyzer-output-val profit-negative';
+        }
+        
+        roiOutput.textContent = `${roi.toFixed(1)}%`;
+        if (roi >= 0) {
+          roiOutput.className = 'analyzer-output-val profit-positive';
+        } else {
+          roiOutput.className = 'analyzer-output-val profit-negative';
+        }
+        
+        maoOutput.textContent = formatCurrency(mao);
+        
+        // Rating evaluation
+        const isGreat = roi >= 20 && purchase <= mao;
+        const isAvoid = roi < 10 || purchase > (mao * 1.10);
+        
+        if (isAvoid) {
+          ratingBadge.className = 'deal-rating-badge avoid';
+          ratingBadge.textContent = '🔴 Avoid';
+        } else if (isGreat) {
+          ratingBadge.className = 'deal-rating-badge great';
+          ratingBadge.textContent = '🟢 Great';
+        } else {
+          ratingBadge.className = 'deal-rating-badge marginal';
+          ratingBadge.textContent = '🟡 Marginal';
+        }
+      }
+    });
+  </script>
+
+  <!-- Deal Analyzer FAB -->
+  <button id="deal-analyzer-fab" class="deal-fab" aria-label="Open Deal Analyzer" title="Deal Analyzer">
+    💰
+  </button>
+
+  <!-- Deal Analyzer Bottom Sheet Modal -->
+  <div id="deal-analyzer-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="deal-modal-title">
+    <div class="modal-content" style="max-height: 90vh;">
+      <div class="drag-handle" id="deal-drag-handle"></div>
+      <div class="modal-header" style="margin-bottom: 12px; padding-bottom: 8px;">
+        <h2 id="deal-modal-title">Deal Analyzer</h2>
+        <button class="modal-close" id="close-deal-btn" aria-label="Close Deal Analyzer">×</button>
+      </div>
+      <div class="modal-body" style="padding-bottom: 16px;">
+        <div class="analyzer-grid">
+          <!-- Inputs Column -->
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div class="analyzer-group">
+              <label for="deal-repair-total" style="display:flex; justify-content:space-between;">
+                <span>Repairs (Auto-pulled)</span>
+                <button type="button" onclick="if(typeof window.recalculateDeal === 'function') window.recalculateDeal(); else if(typeof recalculateDeal === 'function') recalculateDeal()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:0.8rem;font-weight:600;" aria-label="Refresh Repair Total">Refresh ↻</button>
+              </label>
+              <input type="text" id="deal-repair-total" class="analyzer-input" readonly value="$0" />
+            </div>
+            
+            <div class="analyzer-group">
+              <label for="deal-arv">After-Repair Value (ARV)</label>
+              <input type="number" id="deal-arv" class="analyzer-input" placeholder="e.g. 250000" min="0" step="1000" />
+            </div>
+            
+            <div class="analyzer-group">
+              <label for="deal-purchase">Purchase Price</label>
+              <input type="number" id="deal-purchase" class="analyzer-input" placeholder="e.g. 150000" min="0" step="1000" />
+            </div>
+            
+            <div class="analyzer-group">
+              <label for="deal-holding">Holding & Closing Costs</label>
+              <input type="number" id="deal-holding" class="analyzer-input" placeholder="10% of ARV" min="0" step="500" />
+            </div>
+          </div>
+          
+          <!-- Outputs Column -->
+          <div style="display: flex; flex-direction: column; gap: 12px; justify-content: space-between;">
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div class="analyzer-output-card">
+                <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">NET PROFIT</span>
+                <span id="deal-output-profit" class="analyzer-output-val">—</span>
+              </div>
+              
+              <div class="analyzer-output-card">
+                <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">ROI %</span>
+                <span id="deal-output-roi" class="analyzer-output-val">—</span>
+              </div>
+              
+              <div class="analyzer-output-card">
+                <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">MAO (70% RULE)</span>
+                <span id="deal-output-mao" class="analyzer-output-val">—</span>
+              </div>
+            </div>
+            
+            <div>
+              <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">DEAL RATING</div>
+              <div id="deal-rating" class="deal-rating-badge avoid">Avoid (No Data)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Bottom Sheet Modal -->
+  <div id="settings-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="settings-modal-title">Settings</h2>
+        <button class="modal-close" data-action="close-settings" aria-label="Close Settings">×</button>
+      </div>
+      <div class="modal-body">
+        <section class="settings-section">
+          <h3>Price Schedule</h3>
+          <p class="settings-desc">Upload a CSV to update line‑item prices globally. Columns required: <code>id</code>, <code>cost</code>.</p>
+          
+          <div class="csv-upload-container">
+            <input type="file" id="csv-file-input" accept=".csv" style="display: none;" />
+            <button class="btn-primary" id="select-csv-btn">📁 Select CSV File</button>
+            <span id="selected-file-name" class="file-name-label">No file selected</span>
+            <button class="btn-accent" id="upload-csv-btn" disabled>Import Prices</button>
+          </div>
+          
+          <button class="btn-danger" id="reset-prices-btn" style="display: none; margin-top: 16px; width: 100%;">
+            Reset to Default Prices
+          </button>
+          
+          <div id="overridden-prices-list"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const settingsModal = document.getElementById('settings-modal');
+      if (settingsModal) {
+        settingsModal.addEventListener('click', (e) => {
+          if (e.target === settingsModal) {
+            settingsModal.classList.remove('open');
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>
